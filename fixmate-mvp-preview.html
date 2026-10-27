@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#006644">
+<title>FixMate — Android-first MVP preview</title>
+<style>
+  :root {
+    color-scheme: light;
+    --emerald: #00875a;
+    --emerald-dark: #006644;
+    --emerald-bright: #00b979;
+    --emerald-light: #e3f5ee;
+    --ink: #1a1a2e;
+    --slate: #2e3a59;
+    --muted: #6b7a99;
+    --cloud: #f4f6fb;
+    --line: #e5eaf0;
+    --white: #fff;
+    --amber: #f59e0b;
+    --red: #dc4c4c;
+    --shadow: 0 28px 70px rgba(4, 12, 25, .28);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { min-width: 320px; background: #101a28; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--ink);
+    background: radial-gradient(ellipse at 50% 0%, #28384c 0, #172333 48%, #0e1b17 100%);
+  }
+  button, input, textarea, select { font: inherit; }
+  button { -webkit-tap-highlight-color: transparent; }
+  .page { width: min(100%, 1100px); margin: 0 auto; padding: 28px 18px 42px; }
+  .page-header { color: white; text-align: center; margin-bottom: 20px; }
+  .brand-lockup { display: inline-flex; align-items: center; gap: 10px; }
+  .brand-mark { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; color: #fff; background: linear-gradient(145deg, #00c47a, #00875a); box-shadow: 0 6px 18px rgba(0,196,122,.2); }
+  .brand-lockup h1 { margin: 0; font-size: 25px; font-weight: 900; letter-spacing: -.04em; }
+  .page-header p { margin: 7px 0 0; color: rgba(255,255,255,.64); font-size: 13px; }
+  .preview-tag { display: inline-flex; align-items: center; gap: 7px; margin-top: 12px; padding: 6px 11px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; color: rgba(255,255,255,.78); background: rgba(255,255,255,.07); font-size: 11px; font-weight: 700; }
+  .preview-tag i { width: 7px; height: 7px; border-radius: 99px; background: #f7c65c; }
+  .screen-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; max-width: 900px; margin: 0 auto 22px; }
+  .screen-nav button { padding: 7px 10px; border: 1px solid rgba(255,255,255,.11); border-radius: 9px; color: rgba(255,255,255,.68); background: rgba(255,255,255,.07); cursor: pointer; font-size: 11px; font-weight: 750; transition: background .18s, color .18s, transform .18s; }
+  .screen-nav button:hover { transform: translateY(-1px); color: #fff; background: rgba(255,255,255,.13); }
+  .screen-nav button.active { border-color: var(--emerald); color: #fff; background: var(--emerald); }
+  .screen-nav button.admin-shortcut { border-color: rgba(0,196,122,.55); color: #9cf0ce; }
+  .screen-nav button.admin-shortcut.active { color: #fff; background: var(--emerald-dark); }
+  .area-nav { display: flex; justify-content: center; gap: 8px; max-width: 900px; margin: 0 auto 10px; }
+  .area-nav button { padding: 9px 14px; border: 1px solid rgba(255,255,255,.16); border-radius: 11px; color: rgba(255,255,255,.72); background: rgba(255,255,255,.07); cursor: pointer; font-size: 12px; font-weight: 800; }
+  .area-nav button:hover { color: #fff; background: rgba(255,255,255,.13); }
+  .area-nav button.active { border-color: var(--emerald); color: #fff; background: var(--emerald); }
+  .area-nav button[data-area="admin"] { border-color: rgba(0,196,122,.55); color: #9cf0ce; }
+  .area-nav button[data-area="admin"].active { color: #fff; background: var(--emerald-dark); }
+  .phone-nav [hidden] { display: none; }
+  .phone {
+    width: min(100%, 390px);
+    min-height: 740px;
+    height: min(780px, calc(100dvh - 245px));
+    min-height: min(740px, calc(100dvh - 245px));
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+    border: 8px solid #101114;
+    border-radius: 42px;
+    background: var(--white);
+    box-shadow: var(--shadow), 0 0 0 2px #38404a;
+  }
+  .phone::before { content: ""; position: absolute; z-index: 30; left: 50%; top: 0; width: 112px; height: 22px; transform: translateX(-50%); border-radius: 0 0 15px 15px; background: #101114; }
+  .phone-inner { display: flex; flex-direction: column; height: 100%; min-height: 0; padding-top: 21px; }
+  .screen-area { flex: 1; min-height: 0; overflow: hidden; background: var(--cloud); }
+  .screen { display: none; flex-direction: column; height: 100%; min-height: 0; background: var(--white); }
+  .screen.active { display: flex; }
+  .scroll-content { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .screen-nav button:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid rgba(0,135,90,.35); outline-offset: 2px; }
+  .btn { min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; padding: 12px 16px; border: 0; border-radius: 14px; color: white; background: linear-gradient(135deg, var(--emerald-bright), var(--emerald)); box-shadow: 0 5px 15px rgba(0,135,90,.18); cursor: pointer; font-size: 14px; font-weight: 800; text-decoration: none; transition: transform .16s, filter .16s; }
+  .btn:hover { filter: brightness(1.03); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { box-shadow: none; background: #c8d5ce; cursor: not-allowed; transform: none; }
+  .btn.full { width: 100%; }
+  .btn.secondary { color: var(--emerald-dark); background: var(--emerald-light); box-shadow: none; }
+  .btn.ghost { color: var(--slate); background: white; border: 1.5px solid var(--line); box-shadow: none; }
+  .btn.small { min-height: 38px; padding: 9px 12px; border-radius: 11px; font-size: 12px; }
+  .icon { width: 20px; height: 20px; display: inline-block; flex: 0 0 auto; vertical-align: middle; }
+  .topbar { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; min-height: 54px; padding: 9px 16px; border-bottom: 1px solid var(--line); background: #fff; }
+  .topbar .title { flex: 1; font-size: 15px; font-weight: 850; letter-spacing: -.02em; }
+  .icon-btn { width: 36px; height: 36px; display: inline-grid; place-items: center; border: 0; border-radius: 11px; color: var(--slate); background: transparent; cursor: pointer; }
+  .icon-btn:hover { background: var(--cloud); }
+  .screen-padding { padding: 20px; }
+  .section-heading { margin: 0 0 13px; font-size: 16px; font-weight: 850; letter-spacing: -.025em; }
+  .eyebrow { margin: 0 0 6px; color: var(--emerald); font-size: 10px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+  .muted { color: var(--muted); }
+  .small-text { font-size: 12px; line-height: 1.55; }
+  .body-text { font-size: 13px; line-height: 1.6; }
+  .surface { padding: 15px; border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: 0 3px 12px rgba(20,35,58,.035); }
+  .soft-surface { padding: 15px; border: 1px solid #e9f2ed; border-radius: 16px; background: #f5fbf8; }
+  .notice { display: flex; gap: 10px; padding: 12px 13px; border: 1px solid #dcefe6; border-radius: 13px; color: #345748; background: #f2faf6; font-size: 11px; line-height: 1.5; }
+  .notice.warning { border-color: #f4e3ba; color: #7a5816; background: #fff9eb; }
+  .notice.admin { border-color: #c8ead9; color: #0a6145; background: #eaf8f1; }
+  .notice-icon { font-weight: 900; }
+  .field { margin: 0 0 13px; }
+  .field label { display: block; margin-bottom: 6px; color: var(--slate); font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+  .field input, .field textarea, .field select { width: 100%; padding: 12px 13px; border: 1.5px solid var(--line); border-radius: 12px; outline: none; color: var(--ink); background: #fbfcfe; font-size: 14px; }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--emerald); background: #fff; }
+  .field textarea { min-height: 88px; resize: vertical; }
+  .field input::placeholder, .field textarea::placeholder { color: #a0aab8; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--slate); background: #fff; font-size: 11px; font-weight: 750; }
+  .chip.green { border-color: #c6e9d8; color: var(--emerald-dark); background: var(--emerald-light); }
+  .zone-note { margin: -4px 0 13px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+  .zone-list { display: flex; flex-wrap: wrap; gap: 7px; margin: 7px 0 13px; }
+  .zone-list .chip { display: inline-flex; align-items: center; gap: 6px; }
+  .zone-list .chip button { padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; font-weight: 900; }
+  .profile-link { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+  .divider { height: 1px; margin: 16px 0; background: var(--line); }
+  .empty-state { display: flex; flex-direction: column; align-items: center; padding: 32px 22px; text-align: center; }
+  .empty-icon { width: 58px; height: 58px; display: grid; place-items: center; margin-bottom: 13px; border-radius: 18px; color: var(--emerald); background: var(--emerald-light); }
+  .empty-state h3 { margin: 0 0 7px; font-size: 15px; letter-spacing: -.02em; }
+  .empty-state p { max-width: 260px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+  .list-row { display: flex; align-items: flex-start; gap: 11px; padding: 12px 0; border-bottom: 1px solid #edf0f4; }
+  .list-row:last-child { border-bottom: 0; }
+  .list-icon { width: 32px; height: 32px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 11px; color: var(--emerald); background: var(--emerald-light); }
+  .list-row strong { display: block; margin-bottom: 3px; font-size: 12px; }
+  .list-row p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+  .phone-nav { display: flex; flex: 0 0 auto; justify-content: space-around; gap: 2px; padding: 7px 5px max(7px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: rgba(255,255,255,.98); }
+  .phone-nav button { min-width: 0; flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 3px; border: 0; border-radius: 10px; color: #8290a3; background: transparent; cursor: pointer; font-size: 9px; font-weight: 750; }
+  .phone-nav button .icon { width: 19px; height: 19px; }
+  .phone-nav button.active { color: var(--emerald); background: #f0faf5; }
+  .phone-nav button.admin-tab { color: #0b7551; }
+  .phone-nav button.admin-tab.active { color: #fff; background: var(--emerald-dark); }
+  .toast { position: fixed; z-index: 100; left: 50%; bottom: 22px; width: max-content; max-width: min(90vw, 440px); padding: 12px 16px; border: 1px solid rgba(255,255,255,.12); border-radius: 13px; color: #fff; background: #172333; box-shadow: 0 12px 35px rgba(0,0,0,.25); font-size: 13px; line-height: 1.45; opacity: 0; pointer-events: none; transform: translate(-50%, 8px); transition: opacity .2s, transform .2s; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .progress { display: flex; gap: 5px; margin: 14px 0; }
+  .progress span { height: 5px; flex: 1; border-radius: 10px; background: #e8edf0; }
+  .progress span.done { background: var(--emerald); }
+  .splash { align-items: center; justify-content: center; padding: 30px 26px; color: #fff; text-align: center; background: linear-gradient(155deg, #005638 0%, #00875a 56%, #00b979 100%); }
+  .splash .splash-mark { width: 82px; height: 82px; display: grid; place-items: center; margin-bottom: 21px; border: 1px solid rgba(255,255,255,.28); border-radius: 24px; background: rgba(255,255,255,.14); box-shadow: 0 14px 35px rgba(0,0,0,.12); }
+  .splash h2 { margin: 0; font-size: 34px; font-weight: 950; letter-spacing: -.05em; }
+  .splash .splash-sub { margin: 7px 0 0; color: rgba(255,255,255,.82); font-size: 14px; font-weight: 600; }
+  .splash .splash-copy { max-width: 245px; margin: 18px 0 28px; color: rgba(255,255,255,.75); font-size: 12px; line-height: 1.65; }
+  .splash .btn { color: var(--emerald-dark); background: #fff; box-shadow: 0 8px 18px rgba(0,0,0,.15); }
+  .splash .splash-foot { margin-top: 13px; color: rgba(255,255,255,.7); font-size: 10px; }
+  .role-screen { background: var(--white); }
+  .role-screen .intro { padding: 26px 22px 12px; }
+  .role-screen .intro h2 { margin: 0; font-size: 23px; font-weight: 900; letter-spacing: -.04em; }
+  .role-screen .intro p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .role-card { width: 100%; display: flex; align-items: flex-start; gap: 13px; padding: 17px; border: 1.5px solid var(--line); border-radius: 16px; color: var(--ink); background: var(--cloud); text-align: left; cursor: pointer; transition: border-color .16s, background .16s, transform .16s; }
+  .role-card:hover { transform: translateY(-1px); }
+  .role-card.selected { border-color: var(--emerald); background: #effaf5; }
+  .role-card .role-icon { width: 46px; height: 46px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 14px; color: var(--emerald); background: #fff; }
+  .role-card strong { display: block; margin: 2px 0 4px; font-size: 14px; }
+  .role-card span { display: block; color: var(--muted); font-size: 11px; line-height: 1.5; }
+  .home-hero { padding: 18px 18px 23px; color: #fff; background: linear-gradient(135deg, var(--emerald-dark), var(--emerald)); }
+  .home-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  .home-hero .hello { color: rgba(255,255,255,.75); font-size: 11px; font-weight: 650; }
+  .home-hero h2 { margin: 3px 0 0; font-size: 18px; font-weight: 850; letter-spacing: -.03em; }
+  .round-action { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.23); border-radius: 50%; color: #fff; background: rgba(255,255,255,.13); cursor: pointer; }
+  .search-field { display: flex; align-items: center; gap: 9px; padding: 12px 13px; border-radius: 13px; color: var(--muted); background: #fff; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+  .search-field span { font-size: 12px; }
+  .category-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+  .category-card { min-height: 94px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 7px; padding: 10px 5px; border: 1px solid #edf0f4; border-radius: 15px; color: var(--slate); background: #fff; cursor: pointer; text-align: center; transition: border-color .16s, background .16s; }
+  .category-card:hover { border-color: #a8ddc4; background: #f7fcf9; }
+  .category-card .cat-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 12px; color: var(--emerald); background: var(--emerald-light); }
+  .category-card strong { font-size: 10px; line-height: 1.25; }
+  .account-avatar { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 19px; color: var(--emerald-dark); background: var(--emerald-light); font-size: 21px; font-weight: 850; }
+  .timeline { position: relative; margin-left: 8px; padding-left: 24px; }
+  .timeline:before { content: ""; position: absolute; top: 10px; bottom: 12px; left: 6px; width: 2px; background: #dbeee4; }
+  .timeline-step { position: relative; padding: 0 0 17px; }
+  .timeline-step:last-child { padding-bottom: 0; }
+  .timeline-step:before { content: ""; position: absolute; top: 2px; left: -23px; width: 12px; height: 12px; border: 2px solid white; border-radius: 50%; background: var(--emerald); box-shadow: 0 0 0 2px #b9e5d0; }
+  .timeline-step strong { display: block; margin-bottom: 3px; font-size: 12px; }
+  .timeline-step p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+  .admin-hero { padding: 18px; color: #fff; background: linear-gradient(135deg, #123c30, #006644); }
+  .admin-hero .admin-kicker { color: #a2e7c8; font-size: 10px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+  .admin-hero h2 { margin: 6px 0 5px; font-size: 19px; font-weight: 900; letter-spacing: -.03em; }
+  .admin-hero p { margin: 0; color: rgba(255,255,255,.75); font-size: 11px; line-height: 1.5; }
+  .status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 99px; color: #176443; background: #e6f7ed; font-size: 10px; font-weight: 800; }
+  .status-pill.neutral { color: #59677c; background: #eef1f5; }
+  .status-pill.warn { color: #8a5a0a; background: #fff4d9; }
+  .steps-grid { display: grid; gap: 9px; }
+  .step-card { display: flex; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 13px; background: #fff; }
+  .step-num { width: 24px; height: 24px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 8px; color: var(--emerald-dark); background: var(--emerald-light); font-size: 11px; font-weight: 900; }
+  .step-card strong { display: block; margin: 1px 0 3px; font-size: 11px; }
+  .step-card p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+  .screen-enter { animation: enter .2s ease-out; }
+  @keyframes enter { from { opacity: .7; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .inline-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .star-picker { display: flex; gap: 5px; }
+  .star-picker button { padding: 3px; border: 0; color: #c6ced8; background: transparent; cursor: pointer; font-size: 31px; line-height: 1; }
+  .star-picker button.lit { color: var(--amber); }
+  .copy-box { padding: 12px; border: 1px dashed #9ccfb5; border-radius: 12px; color: #315445; background: #f5fbf8; font-size: 11px; line-height: 1.6; }
+  .footer-note { padding: 10px 16px 12px; color: #8692a2; background: var(--cloud); text-align: center; font-size: 9px; line-height: 1.4; }
+  @media (max-width: 520px) {
+    html, body { min-height: 100%; }
+    body { background: #f4f6fb; }
+    .page { width: 100%; padding: 0; }
+    .page-header { display: none; }
+    .area-nav { position: sticky; z-index: 41; top: 0; justify-content: flex-start; gap: 6px; max-width: none; overflow-x: auto; margin: 0; padding: 8px 10px 5px; background: #101b28; scrollbar-width: none; }
+    .area-nav::-webkit-scrollbar { display: none; }
+    .area-nav button { flex: 0 0 auto; padding: 8px 11px; }
+    .screen-nav { position: sticky; z-index: 40; top: 43px; flex-wrap: nowrap; justify-content: flex-start; gap: 6px; max-width: none; overflow-x: auto; margin: 0; padding: 7px 10px 9px; background: #101b28; scrollbar-width: none; }
+    .screen-nav::-webkit-scrollbar { display: none; }
+    .screen-nav button { flex: 0 0 auto; }
+    .phone { width: 100%; height: calc(100dvh - 91px); min-height: 560px; border: 0; border-radius: 0; box-shadow: none; }
+    .phone::before { width: 100px; height: 20px; }
+    .phone-inner { padding-top: 20px; }
+    .phone-nav { padding-bottom: max(9px, env(safe-area-inset-bottom)); }
+    .toast { bottom: calc(70px + env(safe-area-inset-bottom)); }
+  }
+  @media (max-height: 760px) and (min-width: 521px) {
+    .page { padding-top: 15px; }
+    .page-header { margin-bottom: 10px; }
+    .screen-nav { margin-bottom: 12px; }
+    .phone { min-height: 500px; height: calc(100dvh - 175px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+<svg aria-hidden="true" width="0" height="0" style="position:absolute;overflow:hidden">
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.2 6.5a5 5 0 0 0-6.4 6.4L3 17.7a2.1 2.1 0 1 0 3 3l4.8-4.8a5 5 0 0 0 6.4-6.4l-3.1 3.1-3-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 3.5a5 5 0 0 0-6.4 6.4l3.1-3.1 3 3a5 5 0 0 0 .3-6.3Z" fill="currentColor"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 21a8 8 0 0 1 16 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.2c0 4.8 3.2 8.4 7.5 9.8 4.3-1.4 7.5-5 7.5-9.8V6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.2 2 4.5 13h6.8L10.8 22 20 10.5h-6.7z" fill="currentColor"/></symbol>
+  <symbol id="i-computer" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 21h8m-4-4v4m-6-9 3-3 2 2 4-4 3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 7V4h8v3M3 12h18m-11 0v2h4v-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H5l-2 2v-9.5A7.5 7.5 0 0 1 10.5 4H12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 3v6m-3-3h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5m7-7-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8m-8 12a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5m0-8h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4zM22 2 11 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="page">
+  <header class="page-header">
+    <div class="brand-lockup"><span class="brand-mark"><svg class="icon"><use href="#i-wrench"/></svg></span><h1>FixMate</h1></div>
+    <p>Android-first MVP · interactive preview</p>
+    <span class="preview-tag"><i></i> Front-end demo · no live services connected</span>
+  </header>
+
+  <nav class="area-nav" aria-label="Prototype area">
+    <button class="active" data-area="customer" onclick="setArea('customer')">Customer prototype</button>
+    <button data-area="artisan" onclick="setArea('artisan')">Artisan prototype</button>
+    <button data-area="admin" onclick="setArea('admin')">Admin preview</button>
+  </nav>
+
+  <nav class="screen-nav" aria-label="Prototype screens">
+    <button class="active" data-go="splash">Splash</button>
+    <button data-go="role">Account type</button>
+    <button data-go="auth">Sign in</button>
+    <button data-go="home">Home</button>
+    <button data-go="search">Find artisans</button>
+    <button data-go="profile">Provider profile</button>
+    <button data-go="customerRequests">Customer requests</button>
+    <button data-go="request">Request service</button>
+    <button data-go="offers">Offers</button>
+    <button data-go="chat">Messages</button>
+    <button data-go="review">Review</button>
+    <button data-go="account">Account</button>
+    <button data-go="pendingApproval">Pending approval</button>
+    <button data-go="artisanHome">Artisan dashboard</button>
+    <button data-go="artisanProfile">Artisan profile</button>
+    <button data-go="artisanRequests">Incoming requests</button>
+    <button data-go="verification">Artisan verification</button>
+    <button class="admin-shortcut" data-go="admin">Admin dashboard preview</button>
+  </nav>
+
+  <div class="phone" aria-label="FixMate mobile app preview">
+    <div class="phone-inner">
+      <main class="screen-area">
+        <section class="screen splash active" id="splash" aria-label="Splash screen">
+          <div class="splash-mark"><svg width="48" height="48"><use href="#i-wrench"/></svg></div>
+          <h2>FixMate</h2>
+          <p class="splash-sub">Skilled hands. Better homes.</p>
+          <p class="splash-copy">Find local services and connect with artisans through a clear, respectful marketplace.</p>
+          <button class="btn full" onclick="go('role')">Get started</button>
+          <p class="splash-foot">Preview only · no account or backend required</p>
+        </section>
+
+        <section class="screen role-screen" id="role" aria-label="Choose account type">
+          <div class="scroll-content">
+            <div class="intro"><p class="eyebrow">Let’s get started</p><h2>How will you use FixMate?</h2><p>Choose the experience you want to explore in this preview.</p></div>
+            <div style="padding:8px 20px 20px;display:grid;gap:11px">
+              <button class="role-card selected" id="customerRole" onclick="chooseRole('customer')"><span class="role-icon"><svg class="icon"><use href="#i-home"/></svg></span><span><strong>I need a service</strong><span>Browse services, find artisans, and manage your account.</span></span></button>
+              <button class="role-card" id="artisanRole" onclick="chooseRole('artisan')"><span class="role-icon"><svg class="icon"><use href="#i-wrench"/></svg></span><span><strong>I provide a service</strong><span>Explore the artisan profile and verification process.</span></span></button>
+              <div class="notice" style="margin-top:4px"><span class="notice-icon"><svg class="icon"><use href="#i-info"/></svg></span><span>Choosing a role here only changes the prototype view. It does not create an account.</span></div>
+            </div>
+          </div>
+          <div class="screen-padding" style="padding-top:10px"><button class="btn full" onclick="continueFromRole()">Continue</button><button class="btn ghost full" style="margin-top:9px" onclick="exploreCurrent()">Explore without signing in</button></div>
+        </section>
+
+        <section class="screen" id="auth" aria-label="Sign-in and registration preview">
+          <div class="scroll-content screen-padding">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px"><span class="brand-mark"><svg class="icon"><use href="#i-wrench"/></svg></span><strong style="font-size:18px;font-weight:900">FixMate</strong></div>
+            <p class="eyebrow">Account access preview</p><h2 style="margin:0;font-size:23px;letter-spacing:-.04em">Continue as <span id="authRole">customer</span></h2>
+            <p class="muted body-text" style="margin:7px 0 16px">Email code or Google are sign-in methods. WhatsApp is collected separately for account contact, not login.</p>
+            <div class="chip-row" style="margin-bottom:14px"><button class="chip green" type="button" id="signInModeButton" onclick="setAuthMode('signin')">Sign in</button><button class="chip" type="button" id="signUpModeButton" onclick="setAuthMode('signup')">Create account</button></div>
+            <div class="field"><label for="emailPreview">Email address</label><input id="emailPreview" type="email" placeholder="you@example.com" autocomplete="email"></div>
+            <div id="signInPanel">
+              <button class="btn full" type="button" onclick="authNotice('Email-code sign-in is a preview only. No code was sent.')">Continue with email code</button>
+              <div style="display:flex;align-items:center;gap:10px;margin:18px 0;color:#9aa4b2;font-size:11px"><span style="height:1px;flex:1;background:var(--line)"></span>or<span style="height:1px;flex:1;background:var(--line)"></span></div>
+              <button class="btn ghost full" type="button" onclick="authNotice('Google sign-in is not connected in this preview.')"><span style="font-weight:900;color:#4285f4">G</span> Continue with Google</button>
+              <p class="zone-note" style="margin-top:10px">No phone login. The WhatsApp contact number is a separate profile detail.</p>
+            </div>
+            <div id="signUpPanel" hidden>
+              <div class="field"><label for="signupName">Full name</label><input id="signupName" autocomplete="name" placeholder="Your name"></div>
+              <div class="field"><label for="signupWhatsApp">WhatsApp contact number</label><input id="signupWhatsApp" type="tel" inputmode="tel" placeholder="e.g. 08012345678"><small class="muted">Required for account contact. It is not used to sign in.</small></div>
+              <div id="customerRegistrationInfo" class="surface" style="margin-bottom:13px" hidden>
+                <p class="eyebrow">Customer verification before signup</p><strong style="font-size:12px">Profile photo and ABU student ID are required in the secure app</strong>
+                <div class="field" style="margin-top:12px"><label for="customerPhotoPreview">Profile photo / face picture · required for live signup</label><input id="customerPhotoPreview" type="file" accept="image/*" disabled><small class="muted">Upload is disabled in this standalone preview. Do not choose a real photo here.</small></div>
+                <div class="field"><label for="customerStudentIdPreview">ABU student ID image · required for live signup</label><input id="customerStudentIdPreview" type="file" accept="image/*,.pdf" disabled><small class="muted">Upload is disabled here. In the real app, the file must go to private storage for administrator review.</small></div>
+                <p class="muted small-text" style="margin:0">Customer accounts stay pending until an administrator approves them. Platform use starts only after approval. NIN and date of birth are not requested by this flow.</p>
+              </div>
+              <div id="artisanRegistrationInfo" class="surface" style="margin-bottom:13px" hidden>
+                <p class="eyebrow">Artisan profile review</p><strong style="font-size:12px">Complete your services and campus zones next</strong><p class="muted small-text" style="margin:7px 0 0">Every artisan profile is submitted to an administrator. It remains pending and is not marked verified until approval is recorded.</p>
+              </div>
+              <button class="btn full" type="button" onclick="submitRegistrationPreview()">Preview account submission</button>
+              <p class="zone-note" style="margin-top:10px">This preview creates no account and stores no contact details or files.</p>
+            </div>
+            <div class="surface" style="margin-top:14px"><p class="eyebrow">FixMate WhatsApp support</p><p class="muted small-text" style="margin:0 0 10px">Contact the FixMate administrator at <strong>08144196124</strong>. Opening WhatsApp does not send a message automatically.</p><a class="btn secondary full profile-link" href="https://wa.me/2348144196124?text=Hello%20FixMate%20admin%2C%20I%20need%20help%20with%20my%20account." target="_blank" rel="noopener noreferrer">Message FixMate on WhatsApp</a></div>
+            <div class="notice warning" style="margin-top:14px"><span class="notice-icon">!</span><span>Visual prototype only. Sign-in, registration, document upload, and administrator approval are not connected.</span></div>
+            <button class="btn ghost full" style="margin-top:14px" onclick="exploreCurrent()">Skip to this prototype</button>
+          </div>
+        </section>
+
+        <section class="screen" id="home" aria-label="Customer home">
+          <div class="scroll-content">
+            <div class="home-hero">
+              <div class="home-hero-top"><div><div class="hello">FixMate marketplace</div><h2>What do you need help with?</h2></div><button class="round-action" aria-label="Notifications" onclick="toast('Notifications will appear when an account is connected.')"><svg class="icon"><use href="#i-bell"/></svg></button></div>
+              <button class="search-field" style="width:100%;border:0;text-align:left" onclick="go('search')"><svg class="icon"><use href="#i-search"/></svg><span>Search a service zone on ABU Main Campus</span></button><div style="display:flex;align-items:center;gap:6px;margin-top:10px;color:rgba(255,255,255,.82);font-size:10px"><svg class="icon" style="width:15px;height:15px"><use href="#i-pin"/></svg><span>ABU Main Campus pilot · 30 proposed service zones</span></div>
+            </div>
+            <div class="screen-padding" style="padding-top:19px">
+              <div class="inline-row" style="margin-bottom:12px"><h3 class="section-heading" style="margin:0">Browse services</h3><span class="muted" style="font-size:10px">Pilot categories</span></div>
+              <div class="category-grid">
+                <button class="category-card" onclick="chooseCategory('Electrical repairs')"><span class="cat-icon"><svg class="icon"><use href="#i-bolt"/></svg></span><strong>Electrical repairs</strong></button>
+                <button class="category-card" onclick="chooseCategory('Computer services')"><span class="cat-icon"><svg class="icon"><use href="#i-computer"/></svg></span><strong>Computer services</strong></button>
+                <button class="category-card" onclick="chooseCategory('Errands')"><span class="cat-icon"><svg class="icon"><use href="#i-briefcase"/></svg></span><strong>Errands</strong></button>
+              </div>
+              <div style="margin-top:18px" class="soft-surface"><p class="eyebrow">How FixMate works</p><strong style="font-size:13px">Clear steps, considered checks</strong><p class="muted small-text" style="margin:6px 0 12px">Customer accounts must be approved by an administrator before platform use. The secure signup flow requires a profile photo and ABU student ID for private review; NIN and date of birth are not requested here.</p><button class="btn secondary small" onclick="go('verification')">See artisan verification</button></div>
+              <div style="margin-top:15px" class="notice"><span class="notice-icon"><svg class="icon"><use href="#i-info"/></svg></span><span>Artisan listings will appear here when approved pilot-area records are connected. No sample providers are shown in this preview.</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="screen" id="search" aria-label="Find artisans">
+          <div class="topbar"><button class="icon-btn" onclick="go('home')" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button><span class="title">Find an artisan</span><button class="icon-btn" onclick="toast('Filters will use real approved listings when connected.')" aria-label="Filters"><svg class="icon"><use href="#i-search"/></svg></button></div>
+          <div class="scroll-content">
+            <div class="screen-padding" style="padding-bottom:10px">
+              <div class="field"><label for="serviceSearch">Pilot service</label><input id="serviceSearch" type="search" placeholder="Electrical repairs, computer services, or errands" oninput="updateSearch(this.value)"></div>
+              <div class="field"><label for="serviceArea">ABU Main Campus service zone</label><select id="serviceArea" data-pilot-zones data-placeholder="Choose a campus zone"></select></div><p class="zone-note">Choose one of the proposed campus zones below. These are zone names and landmarks, not verified map pins. Kongo and off-campus areas are not in this pilot.</p>
+              <div class="chip-row"><button class="chip green" onclick="quickSearch('Electrical repairs')">Electrical repairs</button><button class="chip" onclick="quickSearch('Computer services')">Computer services</button><button class="chip" onclick="quickSearch('Errands')">Errands</button></div>
+            </div>
+            <div class="divider" style="margin:7px 20px"></div>
+            <div class="empty-state"><span class="empty-icon"><svg width="26" height="26"><use href="#i-search"/></svg></span><h3 id="searchEmptyTitle">No connected listings yet</h3><p id="searchEmptyCopy">When approved artisans are available in your area, they’ll appear here. This preview does not use sample profiles or invented ratings.</p><button class="btn secondary small" style="margin-top:16px" onclick="go('profile')">Preview a profile layout</button></div>
+          </div>
+        </section>
+
+        <section class="screen" id="profile" aria-label="Artisan profile layout preview">
+          <div class="topbar"><button class="icon-btn" onclick="go('search')" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button><span class="title">Artisan profile layout</span></div>
+          <div class="scroll-content screen-padding">
+            <div class="notice warning"><span class="notice-icon"><svg class="icon"><use href="#i-info"/></svg></span><span>Layout preview only — this is not a real artisan profile.</span></div>
+            <div style="display:flex;align-items:center;gap:12px;margin:17px 0"><div class="account-avatar"><svg class="icon" style="width:25px;height:25px"><use href="#i-wrench"/></svg></div><div><p class="eyebrow" style="margin-bottom:4px">Provider profile preview</p><strong style="font-size:15px">Artisan name</strong><p class="muted small-text" style="margin:4px 0 0">Trade · service area</p></div></div>
+            <div class="surface"><div class="inline-row"><strong style="font-size:12px">Verification status</strong><span class="status-pill neutral">Shown after approval</span></div><p class="muted small-text" style="margin:8px 0 0">A verified marker is available only after an administrator reviews the relevant evidence and records approval.</p></div>
+            <div style="height:12px"></div>
+            <div class="surface"><h3 class="section-heading" style="font-size:13px">Profile information</h3><div class="list-row"><span class="list-icon"><svg class="icon"><use href="#i-wrench"/></svg></span><div><strong>Skills and services</strong><p>Trade skills and types of work provided.</p></div></div><div class="list-row"><span class="list-icon"><svg class="icon"><use href="#i-pin"/></svg></span><div><strong>Service area</strong><p>Location details provided by the artisan.</p></div></div><div class="list-row"><span class="list-icon"><svg class="icon"><use href="#i-star"/></svg></span><div><strong>Customer feedback</strong><p>Reviews can appear after real completed jobs.</p></div></div></div>
+            <button class="btn full" style="margin-top:14px" onclick="go('request')">Continue to a service request</button>
+          </div>
+        </section>
+
+        <section class="screen" id="request" aria-label="Create a service request">
+          <div class="topbar"><button class="icon-btn" onclick="go('search')" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button><span class="title">Request a service</span></div>
+          <div class="scroll-content screen-padding">
+            <div class="notice warning" style="margin-bottom:15px"><span class="notice-icon">!</span><span>Preview only: the request stays in this page session and is not sent to an artisan.</span></div>
+            <form id="requestForm" onsubmit="submitRequest(event)">
+              <div class="field"><label for="requestCategory">Pilot service</label><select id="requestCategory" required><option value="">Choose a service</option><option>Electrical repairs</option><option>Computer services</option><option>Errands</option></select></div>
+              <div class="field"><label for="requestArea">ABU Main Campus service zone</label><select id="requestArea" data-pilot-zones data-placeholder="Choose where the service is needed" required></select></div>
+              <p class="zone-note">Only the 30 proposed ABU Main Campus zones are selectable. Names are not verified map pins; Kongo and off-campus areas are excluded.</p>
+              <div class="field"><label for="requestDetails">What do you need help with?</label><textarea id="requestDetails" placeholder="Describe the work you need" required></textarea></div>
+              <div class="field"><label for="requestTiming">When would you like the service?</label><select id="requestTiming"><option>Flexible</option><option>As soon as possible</option><option>Choose a date later</option></select></div>
+              <p class="muted small-text" style="margin:0 0 14px">NIN and date of birth are not requested in this flow. Customer signup requires a profile photo and ABU student ID in the secure app.</p>
+              <button class="btn full" type="submit">Preview request</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="screen" id="customerRequests" aria-label="Customer service requests">
+          <div class="topbar"><button class="icon-btn" onclick="go('home')" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button><span class="title">My service requests</span></div>
+          <div class="scroll-content screen-padding">
+            <div class="notice warning" style="margin-bottom:14px"><span class="notice-icon">!</span><span>Customer accounts must be approved before platform use. This preview does not connect requests or actions to Supabase.</span></div>
+            <div class="empty-state surface"><span class="empty-icon"><svg class="icon"><use href="#i-briefcase"/></svg></span><h3>No service requests yet</h3><p>Requests created by a real customer account will be listed here.</p><button class="btn secondary small" style="margin-top:16px" onclick="go('request')">Draft a service request</button></div>
+            <div class="divider"></div><div class="chip-row"><button class="chip" onclick="go('offers')">Offers</button><button class="chip" onclick="go('chat')">Messages</button><button class="chip" onclick="go('review')">Completed-job reviews</button></div>
+          </div>
+        </section>
+
+        <section class="screen" id="offers" aria-label="Customer offers">
+          <div class="topbar"><button class="icon-btn" onclick="go('home')" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button><span class="title">Offers</span></div>
+          <div class="scroll-content"><div class="empty-state"><span class="empty-icon"><svg class="icon"><use href="#i-briefcase"/></svg></span><h3>No offers to show</h3><p>Offers will appear after a real service request is connected to an artisan. Nothing has been assigned in this preview.</p><button class="btn secondary small" style="margin-top:16px" onclick="go('request')">Draft a request</button></div></div>
+        </section>
+
+        <section class="screen" id="chat" aria-label="Messages">
+          <div class="topbar"><button class="icon-btn" onclick="go('home')" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button><span class="title">Messages</span></div>
+          <div class="scroll-content"><div class="empty-state"><span class="empty-icon"><svg class="icon"><use href="#i-chat"/></svg></span><h3>Your conversations will appear here</h3><p>Messaging is not connected in this file. No conversations or messages have been invented.</p><button class="btn secondary small" style="margin-top:16px" onclick="go('home')">Browse services</button></div></div>
+        </section>
+
+        <section class="screen" id="review" aria-label="Review preview">
+          <div class="topbar"><button class="icon-btn" onclick="go('home')" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button><span class="title">Rate a service</span></div>
+          <div class="scroll-content screen-padding">
+            <div class="notice warning"><span class="notice-icon">!</span><span>A review is normally available after a real job is completed. This preview does not submit or publish reviews.</span></div>
+            <div style="text-align:center;padding:20px 0 14px"><div class="account-avatar" style="margin:0 auto 12px"><svg class="icon"><use href="#i-star"/></svg></div><strong style="display:block;font-size:14px">Completed service</strong><span class="muted small-text">No artisan or job attached</span></div>
+            <p class="eyebrow" style="text-align:center">Preview rating control</p><div class="star-picker" id="starPicker" style="justify-content:center" aria-label="Select a rating"><button onclick="setRating(1)" aria-label="1 star">★</button><button onclick="setRating(2)" aria-label="2 stars">★</button><button onclick="setRating(3)" aria-label="3 stars">★</button><button onclick="setRating(4)" aria-label="4 stars">★</button><button onclick="setRating(5)" aria-label="5 stars">★</button></div>
+            <div class="field" style="margin-top:20px"><label for="reviewText">Optional comment</label><textarea id="reviewText" placeholder="Your comments would appear here"></textarea></div>
+            <button class="btn full" onclick="toast('Preview only — your rating was not saved or published.')">Preview submit</button>
+          </div>
+        </section>
+
+        <section class="screen" id="account" aria-label="Customer account">
+          <div class="topbar"><button class="icon-btn" onclick="go('home')" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button><span class="title">Account</span></div>
+          <div class="scroll-content screen-padding">
+            <div class="notice warning" style="margin-bottom:15px"><span class="notice-icon">!</span><span>Account settings are a prototype. Changes stay on this page and are not saved to a service.</span></div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:19px"><div class="account-avatar"><svg class="icon"><use href="#i-user"/></svg></div><div><p class="eyebrow" style="margin-bottom:3px">Customer account</p><strong style="font-size:14px">Your profile</strong></div></div>
+            <div class="field"><label for="accountName">Display name</label><input id="accountName" placeholder="Your name"></div>
+            <div class="field"><label for="accountEmail">Email</label><input id="accountEmail" type="email" placeholder="you@example.com"></div>
+            <div class="field"><label for="accountWhatsApp">WhatsApp contact number</label><input id="accountWhatsApp" type="tel" inputmode="tel" placeholder="e.g. 08012345678"><small class="muted">In the real app, this contact is stored on the account and available only to authorized administrators; it is not a login method.</small></div>
+            <div class="surface" style="margin-bottom:12px"><div class="inline-row"><strong style="font-size:12px">Account status</strong><span class="status-pill neutral">Pending admin approval</span></div><p class="muted small-text" style="margin:7px 0 0">Customer access begins only after an administrator approves the account.</p></div>
+            <button class="btn secondary full" onclick="toast('Preview only — account changes were not saved.')">Preview save</button>
+            <div class="divider"></div>
+            <div class="soft-surface"><div style="display:flex;align-items:center;gap:8px"><svg class="icon" style="color:var(--emerald)"><use href="#i-shield"/></svg><strong style="font-size:12px">Your privacy</strong></div><p class="muted small-text" style="margin:8px 0 0">Customer signup requires a profile photo and ABU student ID for private administrator review. Customer accounts remain pending until approved. NIN and date of birth are not requested by this flow.</p></div>
+            <button class="btn ghost full" style="margin-top:14px" onclick="go('verification')">Explore artisan verification</button>
+          </div>
+        </section>
+
+        <section class="screen" id="pendingApproval" aria-label="Account pending administrator approval">
+          <div class="topbar"><button class="icon-btn" onclick="go(accountRole === 'artisan' ? 'artisanHome' : 'home')" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button><span class="title">Administrator approval</span></div>
+          <div class="scroll-content screen-padding">
+            <div class="empty-state surface"><span class="empty-icon"><svg class="icon"><use href="#i-shield"/></svg></span><h3 id="pendingApprovalTitle">Account pending approval</h3><p id="pendingApprovalCopy">The account will remain pending until a FixMate administrator reviews and approves it. This screen is only a preview; no account was created.</p></div>
+            <div class="notice warning" style="margin-top:12px"><span class="notice-icon">!</span><span>Admin approval and service access are not connected in this HTML. No documents or account details have been uploaded or saved.</span></div>
+            <div class="surface" style="margin-top:12px"><p class="eyebrow">Need help?</p><p class="muted small-text" style="margin:0 0 10px">WhatsApp FixMate at <strong>08144196124</strong>. Do not send your student ID or other private documents in a WhatsApp chat.</p><a class="btn secondary full profile-link" href="https://wa.me/2348144196124?text=Hello%20FixMate%20admin%2C%20I%20need%20help%20with%20account%20approval." target="_blank" rel="noopener noreferrer">Contact FixMate on WhatsApp</a></div>
+            <button class="btn ghost full" style="margin-top:14px" onclick="go(accountRole === 'artisan' ? 'artisanHome' : 'home')">Return to prototype</button>
+          </div>
+        </section>
+
+        <section class="screen" id="artisanHome" aria-label="Artisan dashboard">
+          <div class="home-hero"><div class="home-hero-top"><div><div class="hello">Artisan workspace</div><h2>Manage your services</h2></div><button class="round-action" aria-label="Notifications" onclick="toast('Artisan alerts appear when real requests are connected.')"><svg class="icon"><use href="#i-bell"/></svg></button></div><div style="display:flex;align-items:center;gap:6px;color:rgba(255,255,255,.82);font-size:10px"><svg class="icon" style="width:15px;height:15px"><use href="#i-pin"/></svg><span>ABU Main Campus · choose from the 30 proposed service zones</span></div></div>
+          <div class="scroll-content screen-padding">
+            <div class="notice warning" style="margin-bottom:14px"><span class="notice-icon">!</span><span>Artisan dashboard preview. No profile, request, or verification information is saved from this file.</span></div>
+            <div class="steps-grid">
+              <button class="step-card" style="width:100%;text-align:left;cursor:pointer" onclick="go('artisanProfile')"><span class="step-num"><svg class="icon" style="width:16px;height:16px"><use href="#i-user"/></svg></span><div><strong>Profile, services & area</strong><p>Manage your pilot services and select the campus zones where you work.</p></div></button>
+              <button class="step-card" style="width:100%;text-align:left;cursor:pointer" onclick="go('artisanRequests')"><span class="step-num"><svg class="icon" style="width:16px;height:16px"><use href="#i-briefcase"/></svg></span><div><strong>Service requests</strong><p>Review matching requests and manage responses when the real marketplace is connected.</p></div></button>
+              <button class="step-card" style="width:100%;text-align:left;cursor:pointer" onclick="go('verification')"><span class="step-num"><svg class="icon" style="width:16px;height:16px"><use href="#i-shield"/></svg></span><div><strong>Verification</strong><p>See the private administrator-led review steps and provide only relevant evidence.</p></div></button>
+            </div>
+            <div class="surface" style="margin-top:14px"><div class="inline-row"><strong style="font-size:12px">FixMate verification</strong><span class="status-pill neutral">Not connected</span></div><p class="muted small-text" style="margin:8px 0 0">The FixMate verification badge is an internal review status, not a government licence.</p></div>
+            <div class="notice" style="margin-top:12px"><span class="notice-icon"><svg class="icon"><use href="#i-info"/></svg></span><span>No sample requests, customer details, ratings, or earnings are shown.</span></div>
+          </div>
+        </section>
+
+        <section class="screen" id="artisanProfile" aria-label="Manage artisan profile">
+          <div class="topbar"><button class="icon-btn" onclick="go('artisanHome')" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button><span class="title">Artisan profile & services</span></div>
+          <div class="scroll-content screen-padding">
+            <div class="notice warning" style="margin-bottom:14px"><span class="notice-icon">!</span><span>Profile editor preview only. Nothing is saved in this standalone file.</span></div>
+            <div class="field"><label for="artisanName">Display name</label><input id="artisanName" placeholder="Your display name"></div>
+            <div class="field"><label for="artisanWhatsApp">WhatsApp contact number</label><input id="artisanWhatsApp" type="tel" inputmode="tel" placeholder="e.g. 08012345678"><small class="muted">Required for administrator contact; this is not a login method.</small></div>
+            <div class="field"><label for="artisanBio">Short profile description</label><textarea id="artisanBio" placeholder="Describe your experience and the services you provide"></textarea></div>
+            <p class="eyebrow">Pilot services</p>
+            <div class="surface" style="display:grid;gap:11px">
+              <label class="small-text"><input type="checkbox"> Electrical repairs</label>
+              <label class="small-text"><input type="checkbox"> Computer services</label>
+              <label class="small-text"><input type="checkbox"> Errands</label>
+            </div>
+            <div class="field" style="margin-top:14px"><label for="artisanAreaSelect">Add an ABU Main Campus service zone</label><select id="artisanAreaSelect" data-pilot-zones data-placeholder="Choose a zone to add"></select></div><button type="button" class="btn secondary small" style="margin:-4px 0 8px" onclick="addArtisanZone()">Add selected zone</button><div id="artisanSelectedZones" class="zone-list" aria-live="polite"></div><p class="zone-note">Select every proposed campus zone where you offer services. Zone names are not verified map pins. Kongo and off-campus areas are not available in this pilot.</p>
+            <div class="surface"><p class="eyebrow">Optional official trade credential</p><strong style="font-size:12px">Shown separately, only if independently confirmed</strong><p class="muted small-text" style="margin:7px 0 0">FixMate does not issue government licences. A trade credential is separate from FixMate verification and must be independently confirmed before display.</p><span class="status-pill neutral" style="margin-top:10px">No credential connected</span></div>
+            <div class="surface" style="margin-top:13px"><div class="inline-row"><strong style="font-size:12px">Approval status</strong><span class="status-pill neutral">Pending administrator review</span></div><p class="muted small-text" style="margin:7px 0 0">Every artisan profile is sent for admin review in the real app. The profile is marked verified only after the admin approves the required review.</p></div><button class="btn full" style="margin-top:14px" onclick="submitArtisanForReview()">Preview profile submission for approval</button>
+          </div>
+        </section>
+
+        <section class="screen" id="artisanRequests" aria-label="Artisan service requests">
+          <div class="topbar"><button class="icon-btn" onclick="go('artisanHome')" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button><span class="title">Incoming requests</span></div>
+          <div class="scroll-content">
+            <div class="notice warning" style="margin:15px 17px 0"><span class="notice-icon">!</span><span>Artisan request preview. No customer requests are connected or simulated.</span></div>
+            <div class="empty-state"><span class="empty-icon"><svg class="icon"><use href="#i-briefcase"/></svg></span><h3>No matching requests</h3><p>Requests from your selected services and ABU Main Campus zones will appear here when the marketplace is connected.</p><button class="btn secondary small" style="margin-top:16px" onclick="go('artisanProfile')">Review profile settings</button></div>
+          </div>
+        </section>
+
+        <section class="screen" id="verification" aria-label="Artisan verification">
+          <div class="topbar"><button class="icon-btn" onclick="go('home')" aria-label="Back"><svg class="icon"><use href="#i-back"/></svg></button><span class="title">Artisan verification</span></div>
+          <div class="scroll-content screen-padding">
+            <div class="notice admin"><span class="notice-icon"><svg class="icon"><use href="#i-shield"/></svg></span><span>Verification is handled by an administrator. A profile is marked verified only after evidence is reviewed and approval is recorded.</span></div>
+            <div class="progress" aria-hidden="true"><span class="done"></span><span></span><span></span><span></span></div>
+            <p class="eyebrow">For artisans</p><h2 style="margin:0 0 7px;font-size:21px;letter-spacing:-.035em">A clear review process</h2><p class="muted body-text" style="margin:0 0 17px">Evidence depends on the trade and the reason for the check. It is reviewed privately; it is not collected by this HTML preview.</p>
+            <div class="surface"><div class="list-row"><span class="list-icon">1</span><div><strong>FixMate contacts you</strong><p>WhatsApp may be used to request missing information, arrange a physical meeting, check trade experience, or explain the process.</p></div></div><div class="list-row"><span class="list-icon">2</span><div><strong>Provide relevant evidence</strong><p>Identity details, proof of trade skills, association credentials where applicable, and other relevant evidence may be requested.</p></div></div><div class="list-row"><span class="list-icon">3</span><div><strong>Administrator review</strong><p>An administrator privately reviews the evidence and records the decision in FixMate.</p></div></div><div class="list-row"><span class="list-icon">4</span><div><strong>Approval enables verified features</strong><p>Only after approval is the artisan marked verified and eligible for applicable verified-provider features.</p></div></div></div>
+            <div class="notice admin" style="margin-top:14px"><span class="notice-icon"><svg class="icon"><use href="#i-info"/></svg></span><span>FixMate does not issue government licences. Any official trade credential must be confirmed independently and displayed separately from the FixMate verification badge.</span></div>
+            <div class="notice warning" style="margin-top:10px"><span class="notice-icon">!</span><span>This preview does not collect documents, contact anyone on WhatsApp, or grant verification.</span></div>
+            <a class="btn secondary full profile-link" style="margin-top:14px" href="https://wa.me/2348144196124?text=Hello%20FixMate%20admin%2C%20I%20am%20an%20artisan%20and%20need%20verification%20support." target="_blank" rel="noopener noreferrer">WhatsApp FixMate · 08144196124</a><button class="btn ghost full" style="margin-top:9px" onclick="copyWhatsAppDraft()">Copy a follow-up draft</button>
+          </div>
+        </section>
+
+        <section class="screen" id="admin" aria-label="Administrator dashboard prototype">
+          <div class="admin-hero"><div class="inline-row"><span class="admin-kicker">FixMate · admin dashboard</span><span class="status-pill" style="color:#dcf8ea;background:rgba(255,255,255,.13)">Prototype only</span></div><h2>Review & operations</h2><p>Protected account search and approval controls are shown as a prototype only.</p></div>
+          <div class="scroll-content screen-padding" style="padding-top:14px">
+            <div class="notice warning" style="margin-bottom:14px"><span class="notice-icon">!</span><span>This Admin area is visible only because this is a local prototype. It is not authenticated or protected. No real account records or private evidence are connected.</span></div>
+            <div class="surface"><p class="eyebrow">Admin profile & contact reference</p><div class="field"><label for="adminWhatsAppReference">FixMate administrator WhatsApp</label><input id="adminWhatsAppReference" type="tel" value="08144196124" readonly></div><p class="muted small-text" style="margin:0 0 10px">Listed on the Admin profile as the designated FixMate contact. This standalone file does not save admin settings.</p><a class="btn secondary full profile-link" href="https://wa.me/2348144196124?text=Hello%20FixMate%20admin." target="_blank" rel="noopener noreferrer">Open FixMate WhatsApp</a></div>
+            <div class="surface" style="margin-top:12px"><p class="eyebrow">Pilot scope</p><strong style="font-size:12px">ABU Main Campus only · 30 proposed service zones</strong><p class="muted small-text" style="margin:7px 0 0">Only the halls, gates, markets, and campus service-centre/landmark zones listed in the selectors are included. These are proposed zones, not verified map pins. Kongo Campus and off-campus areas are excluded.</p></div>
+            <div class="divider"></div>
+            <p class="eyebrow">Search all accounts</p>
+            <div class="field"><label for="adminUserSearch">Name, email, or WhatsApp number</label><input id="adminUserSearch" type="search" placeholder="Search user accounts"></div>
+            <div class="field"><label for="adminRoleFilter">Account type</label><select id="adminRoleFilter"><option value="all">All account types</option><option value="customer">Customers</option><option value="artisan">Artisans</option></select></div>
+            <div class="field"><label for="adminStatusFilter">Account status</label><select id="adminStatusFilter"><option value="all">All statuses</option><option>Pending approval</option><option>Approved</option><option>Restricted</option><option>Rejected</option></select></div>
+            <button class="btn secondary full" type="button" onclick="searchUsersPreview()">Search user directory</button>
+            <div id="adminSearchMessage" class="empty-state surface" style="margin-top:11px;padding:20px 13px"><span class="empty-icon"><svg class="icon"><use href="#i-search"/></svg></span><h3>No connected accounts</h3><p>Search results will come from real Supabase accounts after secure admin access is connected. No sample users are shown.</p></div>
+            <div class="surface" style="margin-top:12px"><p class="eyebrow">Account controls</p><strong style="font-size:12px">Available for customer and artisan accounts</strong><p class="muted small-text" style="margin:6px 0 11px">In the real app, admins can approve or reject accounts, restrict or restore access, and revoke FixMate's internal artisan verification status separately.</p><div class="chip-row"><button class="chip" type="button" onclick="previewAdminAction('Approve')">Approve</button><button class="chip" type="button" onclick="previewAdminAction('Reject')">Reject</button><button class="chip" type="button" onclick="previewAdminAction('Restrict')">Restrict</button><button class="chip" type="button" onclick="previewAdminAction('Restore access')">Restore access</button><button class="chip" type="button" onclick="previewAdminAction('Revoke FixMate verification')">Revoke verification</button></div><p class="zone-note" style="margin:9px 0 0">Controls do not change real accounts in this preview.</p></div>
+            <div class="divider"></div>
+            <p class="eyebrow">Customer verification</p><div class="empty-state surface" style="padding:20px 13px"><span class="empty-icon"><svg class="icon"><use href="#i-user"/></svg></span><h3>No customer submissions connected</h3><p>In the secure app, the profile photo and ABU student ID are submitted before signup and reviewed privately. Customers remain pending until approved.</p></div>
+            <div class="divider"></div>
+            <p class="eyebrow">Artisan profiles & verification</p><div class="empty-state surface" style="padding:20px 13px"><span class="empty-icon"><svg class="icon"><use href="#i-shield"/></svg></span><h3>No artisan submissions connected</h3><p>Every artisan profile is submitted to an administrator. An artisan becomes FixMate-verified only after admin approval is recorded.</p></div>
+            <div class="steps-grid" style="margin-top:12px">
+              <div class="step-card"><span class="step-num">1</span><div><strong>Contact artisans when relevant</strong><p>WhatsApp may be used to request missing details, arrange a physical meeting, check trade experience, or explain the review.</p></div></div>
+              <div class="step-card"><span class="step-num">2</span><div><strong>Review evidence privately</strong><p>Student IDs and other evidence must not be exposed in public profiles or shared outside authorized admin access.</p></div></div>
+              <div class="step-card"><span class="step-num">3</span><div><strong>Record the decision</strong><p>Approve, reject, request information, restrict an account, or revoke FixMate's internal verified status as appropriate.</p></div></div>
+            </div>
+            <div class="surface" style="margin-top:12px"><p class="eyebrow">Complaints</p><strong style="font-size:12px">Complaint management queue</strong><p class="muted small-text" style="margin:6px 0 0">No complaint records are connected in this preview.</p></div>
+            <div class="surface" style="margin-top:12px"><p class="eyebrow">Trade credentials</p><strong style="font-size:12px">Independent confirmation only</strong><p class="muted small-text" style="margin:6px 0 0">FixMate verification is not a government licence. Any official credential is separate and shown only after independent confirmation.</p></div>
+            <div class="footer-note" style="margin:16px -20px -20px">Admin preview only · not protected · no real account search or status changes</div>
+          </div>
+        </section>
+      </main>
+
+      <nav class="phone-nav" aria-label="App sections">
+        <button class="active" data-area="customer" data-tab="home" onclick="go('home')"><svg class="icon"><use href="#i-home"/></svg><span>Home</span></button>
+        <button data-area="customer" data-tab="search" onclick="go('search')"><svg class="icon"><use href="#i-search"/></svg><span>Browse</span></button>
+        <button data-area="customer" data-tab="customerRequests" onclick="go('customerRequests')"><svg class="icon"><use href="#i-briefcase"/></svg><span>My jobs</span></button>
+        <button data-area="customer" data-tab="chat" onclick="go('chat')"><svg class="icon"><use href="#i-chat"/></svg><span>Messages</span></button>
+        <button data-area="customer" data-tab="account" onclick="go('account')"><svg class="icon"><use href="#i-user"/></svg><span>Account</span></button>
+        <button data-area="artisan" data-tab="artisanHome" onclick="go('artisanHome')"><svg class="icon"><use href="#i-home"/></svg><span>Dashboard</span></button>
+        <button data-area="artisan" data-tab="artisanRequests" onclick="go('artisanRequests')"><svg class="icon"><use href="#i-briefcase"/></svg><span>Requests</span></button>
+        <button data-area="artisan" data-tab="artisanProfile" onclick="go('artisanProfile')"><svg class="icon"><use href="#i-user"/></svg><span>Profile</span></button>
+        <button data-area="artisan" data-tab="verification" onclick="go('verification')"><svg class="icon"><use href="#i-shield"/></svg><span>Verify</span></button>
+        <button class="admin-tab" data-area="admin" data-tab="admin" onclick="go('admin')"><svg class="icon"><use href="#i-shield"/></svg><span>Admin</span></button>
+      </nav>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  let currentScreen = 'splash';
+  let currentArea = 'customer';
+  let accountRole = 'customer';
+  let toastTimer;
+  let rating = 0;
+  const screenLabels = {
+    splash: true, role: true, auth: true, home: true, search: true, profile: true,
+    customerRequests: true, request: true, offers: true, chat: true, review: true,
+    account: true, pendingApproval: true, artisanHome: true, artisanProfile: true, artisanRequests: true,
+    verification: true, admin: true
+  };
+  const PILOT_ZONE_GROUPS = [
+    {label:'Student halls and hostels', zones:['Akenzua Hall','Amina Hall','Alexander Hall','Danfodio Hall','ICSA Hall','Ramat Hall','Ribadu Hall','Suleiman Hall','Shehu Idris Hall','Aliko Dangote Hall']},
+    {label:'Gates and access points', zones:['ABU North Gate','ABU Main Gate','Phase II / Site II entrance']},
+    {label:'Markets and commercial centres', zones:['ABU Community Market','Samaru Market-side campus access','Community Market Junction','Hall shopping complexes and minimarkets','North Gate shops and business area','Main Gate commercial area','Campus kiosks and food vendors area']},
+    {label:'Student service centres and landmarks', zones:['Aliyu Mustapha Social Centre','Pharmacy Roundabout','Kashim Ibrahim Library area','ABU Bookshop','Central Mosque / Main Gate area','ABU Post Office area','Senate Building area',"Students' clinic / campus medical centre",'Faculty of Engineering area','Postgraduate School / postgraduate accommodation area']}
+  ];
+  let selectedArtisanZones = [];
+  function populatePilotZoneDropdowns() {
+    document.querySelectorAll('select[data-pilot-zones]').forEach(select => {
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = select.dataset.placeholder || 'Choose a campus zone';
+      placeholder.selected = true;
+      select.appendChild(placeholder);
+      PILOT_ZONE_GROUPS.forEach(group => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = group.label;
+        group.zones.forEach(zone => {
+          const option = document.createElement('option');
+          option.value = zone;
+          option.textContent = zone;
+          optgroup.appendChild(option);
+        });
+        select.appendChild(optgroup);
+      });
+    });
+  }
+  function setAuthMode(mode) {
+    const signup = mode === 'signup';
+    document.getElementById('signInPanel').hidden = signup;
+    document.getElementById('signUpPanel').hidden = !signup;
+    document.getElementById('signInModeButton').classList.toggle('green', !signup);
+    document.getElementById('signUpModeButton').classList.toggle('green', signup);
+    updateRegistrationPanels();
+  }
+  function updateRegistrationPanels() {
+    const isCustomer = accountRole === 'customer';
+    const customer = document.getElementById('customerRegistrationInfo');
+    const artisan = document.getElementById('artisanRegistrationInfo');
+    if (customer) customer.hidden = !isCustomer;
+    if (artisan) artisan.hidden = isCustomer;
+  }
+  function submitRegistrationPreview() {
+    const name = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('emailPreview').value.trim();
+    const whatsapp = document.getElementById('signupWhatsApp').value.trim();
+    if (!name || !email || !whatsapp) { toast('Enter a name, email, and WhatsApp contact to preview the registration flow.'); return; }
+    if (accountRole === 'customer') {
+      document.getElementById('pendingApprovalTitle').textContent = 'Customer account pending approval';
+      document.getElementById('pendingApprovalCopy').textContent = 'In the live app, your profile photo and ABU student ID must be submitted securely before signup. A FixMate administrator must approve the customer account before platform use. This preview creates no account.';
+      go('pendingApproval');
+    } else {
+      document.getElementById('artisanName').value = name;
+      document.getElementById('artisanWhatsApp').value = whatsapp;
+      toast('Preview only — complete services and campus zones before the profile approval flow.');
+      go('artisanProfile');
+    }
+  }
+  function submitArtisanForReview() {
+    document.getElementById('pendingApprovalTitle').textContent = 'Artisan profile pending approval';
+    document.getElementById('pendingApprovalCopy').textContent = 'In the live app, your completed profile and service zones are submitted to the FixMate administrator. You are not marked verified and cannot access verified-provider features until approval is recorded. This preview submits nothing.';
+    go('pendingApproval');
+  }
+  function addArtisanZone() {
+    const select = document.getElementById('artisanAreaSelect');
+    if (!select || !select.value) { toast('Choose a campus zone first.'); return; }
+    if (!selectedArtisanZones.includes(select.value)) selectedArtisanZones.push(select.value);
+    renderArtisanZones();
+    select.value = '';
+  }
+  function removeArtisanZone(zone) {
+    selectedArtisanZones = selectedArtisanZones.filter(item => item !== zone);
+    renderArtisanZones();
+  }
+  function renderArtisanZones() {
+    const container = document.getElementById('artisanSelectedZones');
+    if (!container) return;
+    container.replaceChildren();
+    if (!selectedArtisanZones.length) {
+      const empty = document.createElement('span');
+      empty.className = 'muted small-text';
+      empty.textContent = 'No zones selected yet.';
+      container.appendChild(empty);
+      return;
+    }
+    selectedArtisanZones.forEach(zone => {
+      const chip = document.createElement('span');
+      chip.className = 'chip green';
+      chip.append(document.createTextNode(zone));
+      const remove = document.createElement('button');
+      remove.type = 'button'; remove.setAttribute('aria-label', 'Remove ' + zone);
+      remove.textContent = '×'; remove.addEventListener('click', () => removeArtisanZone(zone));
+      chip.appendChild(remove); container.appendChild(chip);
+    });
+  }
+  function searchUsersPreview() {
+    const message = document.getElementById('adminSearchMessage');
+    message.innerHTML = '<span class="empty-icon"><svg class="icon"><use href="#i-search"/></svg></span><h3>No connected accounts</h3><p>This standalone preview has no user directory. In the secure app, admins can search customer and artisan accounts by name, email, or WhatsApp number.</p>';
+    toast('Preview only — no account search was performed.');
+  }
+  function previewAdminAction(action) { toast(action + ' is a preview only. No account status changed.'); }
+
+  function go(id) {
+    if (!screenLabels[id]) return;
+    if (id === 'admin') currentArea = 'admin';
+    else if (['artisanHome', 'artisanProfile', 'artisanRequests', 'verification'].includes(id)) currentArea = 'artisan';
+    else if (!['splash', 'role', 'auth', 'pendingApproval'].includes(id)) currentArea = 'customer';
+    document.querySelectorAll('.screen').forEach(el => el.classList.toggle('active', el.id === id));
+    document.querySelectorAll('.area-nav [data-area]').forEach(el => el.classList.toggle('active', el.dataset.area === currentArea));
+    document.querySelectorAll('.screen-nav [data-go]').forEach(el => el.classList.toggle('active', el.dataset.go === id));
+    document.querySelectorAll('.phone-nav [data-area]').forEach(el => { el.hidden = el.dataset.area !== currentArea; });
+    document.querySelectorAll('.phone-nav [data-tab]').forEach(el => el.classList.toggle('active', el.dataset.tab === id));
+    currentScreen = id;
+    const activeButton = document.querySelector('.screen-nav [data-go="' + id + '"]');
+    if (activeButton && window.innerWidth <= 520) activeButton.scrollIntoView({block:'nearest', inline:'center', behavior:'smooth'});
+  }
+  document.querySelectorAll('.screen-nav [data-go]').forEach(button => button.addEventListener('click', () => go(button.dataset.go)));
+  function setArea(area) {
+    if (!['customer', 'artisan', 'admin'].includes(area)) return;
+    accountRole = area === 'admin' ? accountRole : area;
+    if (area === 'customer') go('home');
+    else if (area === 'artisan') go('artisanHome');
+    else go('admin');
+  }
+  function continueFromRole() { setArea(accountRole); go('auth'); }
+  function exploreCurrent() { go(accountRole === 'artisan' ? 'artisanHome' : 'home'); }
+  function chooseRole(role) {
+    accountRole = role;
+    document.getElementById('customerRole').classList.toggle('selected', role === 'customer');
+    document.getElementById('artisanRole').classList.toggle('selected', role === 'artisan');
+    document.getElementById('authRole').textContent = role;
+    updateRegistrationPanels();
+    if (role === 'artisan') toast('Artisan preview selected. Continue to the separate artisan dashboard.');
+  }
+  function chooseCategory(name) {
+    const input = document.getElementById('serviceSearch');
+    if (input) input.value = name;
+    updateSearch(name);
+    go('search');
+  }
+  function quickSearch(name) { chooseCategory(name); }
+  function updateSearch(value) {
+    const title = document.getElementById('searchEmptyTitle');
+    const copy = document.getElementById('searchEmptyCopy');
+    if (!title || !copy) return;
+    const clean = value.trim();
+    title.textContent = clean ? 'No connected ' + clean.toLowerCase() + ' listings yet' : 'No connected listings yet';
+    copy.textContent = 'When approved artisans are available for the selected ABU Main Campus zone, they will appear here. This preview does not use sample profiles or invented ratings.';
+  }
+  function toast(message) {
+    const el = document.getElementById('toast');
+    el.textContent = message;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+  function authNotice(message) { toast(message); }
+  function submitRequest(event) {
+    event.preventDefault();
+    if (!event.currentTarget.reportValidity()) return;
+    toast('Preview only — request drafted in this page session; nothing was sent or saved.');
+  }
+  function setRating(value) {
+    rating = value;
+    document.querySelectorAll('#starPicker button').forEach((button, index) => button.classList.toggle('lit', index < value));
+  }
+  function copyWhatsAppDraft() {
+    const text = 'Hello, this is FixMate following up about your artisan profile. We may need a little more information to complete the review. We can arrange a physical meeting, discuss your trade experience, or explain the verification steps. Please let us know a convenient time to talk.';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => toast('WhatsApp message draft copied. It was not sent.')).catch(() => showDraft(text));
+    } else showDraft(text);
+  }
+  function showDraft(text) {
+    const panel = document.createElement('div');
+    panel.style.cssText = 'position:fixed;z-index:90;inset:0;display:grid;place-items:center;padding:20px;background:rgba(10,20,30,.52)';
+    panel.innerHTML = '<div style="width:min(100%,430px);padding:18px;border-radius:18px;background:#fff;box-shadow:0 20px 60px rgba(0,0,0,.25)"><strong style="font-size:15px">WhatsApp follow-up draft</strong><p style="margin:6px 0 12px;color:#6b7a99;font-size:12px">Copy and send manually if appropriate. Nothing is sent from this preview.</p><textarea style="width:100%;min-height:132px;padding:12px;border:1px solid #e5eaf0;border-radius:12px;font:inherit;font-size:13px;line-height:1.5;color:#1a1a2e"></textarea><div style="display:flex;gap:8px;margin-top:11px"><button class="btn secondary" data-copy>Copy draft</button><button class="btn ghost" data-close>Close</button></div></div>';
+    document.body.appendChild(panel);
+    const area = panel.querySelector('textarea'); area.value = text;
+    panel.querySelector('[data-close]').onclick = () => panel.remove();
+    panel.querySelector('[data-copy]').onclick = () => { area.select(); try { document.execCommand('copy'); toast('Draft copied. It was not sent.'); } catch(e) { toast('Select and copy the draft manually.'); } };
+    panel.addEventListener('click', event => { if (event.target === panel) panel.remove(); });
+  }
+  populatePilotZoneDropdowns();
+  updateRegistrationPanels();
+  renderArtisanZones();
+  document.querySelectorAll('.phone-nav [data-area]').forEach(el => { el.hidden = el.dataset.area !== currentArea; });
+</script>
+</body>
+</html>
