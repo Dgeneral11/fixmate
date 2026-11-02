@@ -28,6 +28,7 @@ export interface Profile {
   email: string | null;
   phone: string | null;
   account_status: AccountStatus;
+  account_type_selected: boolean;
 }
 
 export interface ServiceZone {

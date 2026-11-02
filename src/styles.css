@@ -122,7 +122,11 @@ input[type='checkbox'] { width: 17px; min-height: 17px; height: 17px; accent-col
 .optional-details__body { padding-top: 13px; }
 .auth-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0 13px; color: #99a8a1; font-size: .76rem; }
 .auth-divider::before, .auth-divider::after { height: 1px; flex: 1; background: #e9eeeb; content: ''; }
-.google-button { width: 100%; min-height: 44px; border: 1px solid #e1e8e4; border-radius: 12px; color: #82928b; background: #fafcfb; font-weight: 700; }
+.google-button { display: flex; width: 100%; min-height: 48px; align-items: center; justify-content: center; gap: 11px; border: 1px solid #d8e0dc; border-radius: 12px; color: #263a30; background: #fff; font-weight: 700; cursor: pointer; }
+.google-button:hover:not(:disabled) { background: #f7faf8; border-color: #b7c8bf; }
+.google-button:disabled { opacity: .65; cursor: wait; }
+.google-button__mark { color: #4285f4; font-size: 1.15rem; font-weight: 800; }
+.account-type-card { display: grid; width: min(100%, 560px); gap: 13px; }
 .google-status { margin: 7px 0 0; }
 .privacy-copy { margin: 18px 0 0; color: #74867d; font-size: .75rem; line-height: 1.5; }
 .auth-footer { display: flex; justify-content: center; gap: 9px; margin-top: 22px; color: #8c9c94; font-size: .7rem; }

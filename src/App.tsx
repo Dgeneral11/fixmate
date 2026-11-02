@@ -7,6 +7,7 @@ import { supabaseClient } from './lib/supabase';
 import type { Profile } from './lib/types';
 
 const AuthScreen = lazy(() => import('./features/auth/AuthScreen').then((module) => ({ default: module.AuthScreen })));
+const AccountTypeSelection = lazy(() => import('./features/auth/AccountTypeSelection').then((module) => ({ default: module.AccountTypeSelection })));
 const AdminDashboard = lazy(() => import('./features/admin/AdminDashboard').then((module) => ({ default: module.AdminDashboard })));
 const ArtisanDashboard = lazy(() => import('./features/artisan/ArtisanDashboard').then((module) => ({ default: module.ArtisanDashboard })));
 const ArtisanOnboarding = lazy(() => import('./features/artisan/ArtisanOnboarding').then((module) => ({ default: module.ArtisanOnboarding })));
@@ -49,7 +50,7 @@ export default function App() {
     setProfileError('');
     const { data, error } = await supabaseClient
       .from('profiles')
-      .select('id, role, display_name, email, phone, account_status')
+      .select('id, role, display_name, email, phone, account_status, account_type_selected')
       .eq('id', session.user.id)
       .maybeSingle();
     if (error) {
@@ -82,7 +83,7 @@ export default function App() {
   }
 
   if (authLoading) return <LoadingState label="Connecting securely to FixMate…" />;
-  if (!session) return <Suspense fallback={<LoadingState label="Loading FixMate sign-in…" />}><AuthScreen supabase={supabaseClient} onAuthenticated={() => undefined} /></Suspense>;
+  if (!session) return <Suspense fallback={<LoadingState label="Loading FixMate sign-in…" />}><AuthScreen supabase={supabaseClient} /></Suspense>;
 
   if (profileLoading) return <LoadingState label="Loading your account status…" />;
   if (profileError) {
@@ -96,6 +97,9 @@ export default function App() {
   if (profile.role === 'administrator') return <Suspense fallback={<LoadingState label="Loading administrator workspace…" />}><AdminDashboard {...shared} /></Suspense>;
   if (profile.account_status === 'restricted' || profile.account_status === 'rejected') {
     return <Suspense fallback={<LoadingState label="Loading account status…" />}><AccessNotice profile={profile} supabase={supabaseClient} onSignOut={signOut} /></Suspense>;
+  }
+  if (profile.account_status === 'pending_approval' && !profile.account_type_selected) {
+    return <Suspense fallback={<LoadingState label="Preparing your FixMate setup…" />}><AccountTypeSelection {...shared} /></Suspense>;
   }
   if (profile.role === 'customer') {
     return profile.account_status === 'active'
