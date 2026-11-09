@@ -32,11 +32,11 @@ export function AuthScreen({ supabase }: AuthScreenProps) {
     <main className="auth-layout">
       <section className="auth-story">
         <BrandMark />
-        <p className="eyebrow">ABU MAIN CAMPUS · ZARIA</p>
+        <p className="eyebrow">TRUSTED LOCAL SERVICES</p>
         <h1>Good help,<br /><span>close to home.</span></h1>
-        <p className="auth-story__lead">Find phone and computer repair, electrical help, and errands—within the ABU Main Campus pilot.</p>
-        <div className="auth-trust-note"><span aria-hidden="true">✓</span><span>Customers and artisans are reviewed by FixMate before they use the marketplace.</span></div>
-        <div className="auth-campus-chip"><span className="online-dot" /> ABU Main Campus pilot</div>
+        <p className="auth-story__lead">Find skilled help for electrical repairs, phone and computer repair, and everyday errands.</p>
+        <div className="auth-trust-note"><span aria-hidden="true">✓</span><span>Reviewed artisans and clear requests, with help when you need it.</span></div>
+        <div className="auth-campus-chip"><span className="online-dot" /> Service areas shown when you request</div>
       </section>
 
       <section className="auth-panel card">
@@ -51,7 +51,7 @@ export function AuthScreen({ supabase }: AuthScreenProps) {
           {busy ? 'Connecting to Google…' : 'Continue with Google'}
         </button>
         <p className="privacy-copy">FixMate does not ask for or store your Google password. Customer and artisan access requires the relevant FixMate review. NIN and date of birth are not required by default.</p>
-        <div className="auth-footer"><span>Private by default</span><span>·</span><span>ABU Main Campus only</span></div>
+        <div className="auth-footer"><span>Private by default</span><span>·</span><span>Reviewed providers</span></div>
       </section>
     </main>
   );

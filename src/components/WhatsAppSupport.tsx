@@ -2,16 +2,25 @@ import { useEffect, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { whatsAppLink } from '../lib/catalog';
+import { useRealtimeRefresh } from '../lib/useRealtimeRefresh';
 
 export function useSupportWhatsApp(supabase: SupabaseClient): string {
   const [number, setNumber] = useState('08144196124');
+  async function loadNumber() {
+    const { data } = await supabase.from('fixmate_contact_settings').select('support_whatsapp_number').eq('id', 1).maybeSingle();
+    if (data?.support_whatsapp_number) setNumber(data.support_whatsapp_number);
+  }
+
+  useRealtimeRefresh({
+    supabase,
+    identity: 'support-setting',
+    scope: 'support-whatsapp',
+    tables: [{ table: 'fixmate_contact_settings', filter: 'id=eq.1' }],
+    onChange: loadNumber,
+  });
+
   useEffect(() => {
-    let alive = true;
-    supabase.from('fixmate_contact_settings').select('support_whatsapp_number').eq('id', 1).maybeSingle()
-      .then(({ data }) => {
-        if (alive && data?.support_whatsapp_number) setNumber(data.support_whatsapp_number);
-      });
-    return () => { alive = false; };
+    void loadNumber();
   }, [supabase]);
   return number;
 }

@@ -5,6 +5,7 @@ import { Alert, BrandMark, Button, LoadingState } from './components/ui';
 import { WhatsAppSupport } from './components/WhatsAppSupport';
 import { supabaseClient } from './lib/supabase';
 import type { Profile } from './lib/types';
+import { useRealtimeRefresh } from './lib/useRealtimeRefresh';
 
 const AuthScreen = lazy(() => import('./features/auth/AuthScreen').then((module) => ({ default: module.AuthScreen })));
 const AccountTypeSelection = lazy(() => import('./features/auth/AccountTypeSelection').then((module) => ({ default: module.AccountTypeSelection })));
@@ -44,23 +45,35 @@ export default function App() {
     };
   }, []);
 
-  const refreshProfile = useCallback(async () => {
+  const refreshProfile = useCallback(async (silent = false) => {
     if (!supabaseClient || !session?.user) return;
-    setProfileLoading(true);
-    setProfileError('');
+    if (!silent) {
+      setProfileLoading(true);
+      setProfileError('');
+    }
     const { data, error } = await supabaseClient
       .from('profiles')
       .select('id, role, display_name, email, phone, account_status, account_type_selected')
       .eq('id', session.user.id)
       .maybeSingle();
     if (error) {
-      setProfileError(error.message);
-      setProfile(null);
+      if (!silent) {
+        setProfileError(error.message);
+        setProfile(null);
+      }
     } else {
       setProfile(data as Profile | null);
     }
-    setProfileLoading(false);
+    if (!silent) setProfileLoading(false);
   }, [session?.user?.id]);
+
+  useRealtimeRefresh({
+    supabase: supabaseClient,
+    identity: session?.user?.id ?? null,
+    scope: 'account-profile',
+    tables: session?.user?.id ? [{ table: 'profiles', filter: `id=eq.${session.user.id}`, events: ['UPDATE'] }] : [],
+    onChange: () => refreshProfile(true),
+  });
 
   useEffect(() => {
     if (!session?.user) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { BriefcaseBusiness, FileCheck2, FileUp, LockKeyhole, ShieldCheck } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { AppHeader, Alert, Button, Card, Field, LoadingState, StatusPill } from '../../components/ui';
@@ -6,6 +6,7 @@ import { WhatsAppSupport } from '../../components/WhatsAppSupport';
 import { WorkspaceShell, type WorkspaceNavItem } from '../../components/WorkspaceShell';
 import { ARTISAN_APPLICATION_STATUSES, cleanWhatsAppNumber, groupZones, SERVICE_CATEGORIES } from '../../lib/catalog';
 import type { ArtisanApplication, ArtisanDocument, ArtisanProfile, Profile, ServiceCategory, ServiceZone } from '../../lib/types';
+import { useRealtimeRefresh } from '../../lib/useRealtimeRefresh';
 
 interface Props {
   supabase: SupabaseClient;
@@ -41,12 +42,16 @@ export function ArtisanOnboarding({ supabase, profile, onRefresh, onSignOut }: P
   const [tradeFile, setTradeFile] = useState<File | null>(null);
   const [safetyFile, setSafetyFile] = useState<File | null>(null);
   const [assessmentFile, setAssessmentFile] = useState<File | null>(null);
+  const loadGeneration = useRef(0);
 
-  async function loadOnboarding() {
-    setLoading(true);
+  async function loadOnboarding(background = false, initializeRole = false) {
+    const generation = ++loadGeneration.current;
+    if (!background) setLoading(true);
     setError('');
-    const { error: roleError } = await supabase.rpc('fixmate_set_initial_role', { p_role: 'artisan' });
-    if (roleError) setError(roleError.message);
+    if (initializeRole) {
+      const { error: roleError } = await supabase.rpc('fixmate_set_initial_role', { p_role: 'artisan' });
+      if (roleError) setError(roleError.message);
+    }
     const [profileResult, zoneResult, applicationResult, zoneLinkResult] = await Promise.all([
       supabase.from('artisan_profiles').select('user_id, display_name, service_categories, years_experience, service_area, bio, is_available').eq('user_id', profile.id).maybeSingle(),
       supabase.from('pilot_service_zones').select('id, zone_group, name, sort_order, is_active').eq('is_active', true).order('sort_order'),
@@ -54,6 +59,10 @@ export function ArtisanOnboarding({ supabase, profile, onRefresh, onSignOut }: P
       supabase.from('artisan_service_zones').select('zone_id').eq('artisan_id', profile.id),
     ]);
     const firstError = profileResult.error ?? zoneResult.error ?? applicationResult.error ?? zoneLinkResult.error;
+    if (firstError && background) {
+      if (generation === loadGeneration.current) { setError(firstError.message); setLoading(false); }
+      return;
+    }
     if (firstError) setError(firstError.message);
     const artisanData = profileResult.data as ArtisanProfile | null;
     const appData = applicationResult.data as ArtisanApplication | null;
@@ -68,11 +77,16 @@ export function ArtisanOnboarding({ supabase, profile, onRefresh, onSignOut }: P
       setBio(artisanData.bio ?? '');
     }
     if (appData) {
-      setRoute(appData.route);
-      setNotes(appData.applicant_notes ?? '');
       const { data: docData, error: docError } = await supabase.from('artisan_verification_documents')
         .select('id, application_id, uploaded_by, document_type, storage_path, created_at')
         .eq('application_id', appData.id).order('created_at', { ascending: true });
+      if (docError && background) {
+        if (generation === loadGeneration.current) { setError(docError.message); setLoading(false); }
+        return;
+      }
+      if (generation !== loadGeneration.current) return;
+      setRoute(appData.route);
+      setNotes(appData.applicant_notes ?? '');
       if (docError) setError(docError.message);
       setDocuments((docData ?? []) as ArtisanDocument[]);
     } else {
@@ -81,7 +95,21 @@ export function ArtisanOnboarding({ supabase, profile, onRefresh, onSignOut }: P
     setLoading(false);
   }
 
-  useEffect(() => { void loadOnboarding(); }, [profile.id]);
+  const liveStatus = useRealtimeRefresh({
+    supabase,
+    identity: profile.id,
+    scope: 'artisan-onboarding',
+    tables: [
+      { table: 'artisan_verification_applications', filter: `artisan_id=eq.${profile.id}` },
+      { table: 'artisan_verification_documents', filter: `uploaded_by=eq.${profile.id}` },
+      { table: 'artisan_profiles', filter: `user_id=eq.${profile.id}` },
+      { table: 'artisan_service_zones', filter: `artisan_id=eq.${profile.id}` },
+      { table: 'pilot_service_zones' },
+    ],
+    onChange: () => loadOnboarding(true),
+  });
+
+  useEffect(() => { void loadOnboarding(false, true); }, [profile.id]);
 
   const groupedZones = useMemo(() => groupZones(zones), [zones]);
   const status = application?.status;
@@ -113,7 +141,7 @@ export function ArtisanOnboarding({ supabase, profile, onRefresh, onSignOut }: P
     if (!name.trim()) { setError('Enter your name.'); return; }
     if (!/^\+?[0-9]{10,15}$/.test(cleanPhone)) { setError('Enter a WhatsApp contact number with 10–15 digits.'); return; }
     if (categories.length === 0) { setError('Select at least one FixMate pilot service.'); return; }
-    if (selectedZones.length === 0) { setError('Select at least one ABU Main Campus service zone.'); return; }
+    if (selectedZones.length === 0) { setError('Select at least one service zone.'); return; }
     if (!identityFile && !checkedDocs('identity_document')) { setError('Upload an identity document.'); return; }
     if (route === 'trade_credential' && !tradeFile && !checkedDocs('trade_credential')) { setError('Upload proof of trade skills or an applicable association credential.'); return; }
     if (route === 'alternative_assessment' && !notes.trim()) { setError('Describe your trade experience so FixMate can plan the alternative assessment.'); return; }
@@ -198,21 +226,21 @@ export function ArtisanOnboarding({ supabase, profile, onRefresh, onSignOut }: P
   if (loading) return <LoadingState label="Loading artisan review requirements…" />;
   if (!status || canEdit) {
     return (
-      <WorkspaceShell profile={profile} roleLabel="Artisan · pending approval" navItems={navItems} activeTab="verification" onTabChange={() => undefined} onSignOut={onSignOut}>
+      <WorkspaceShell profile={profile} roleLabel="Artisan · pending approval" navItems={navItems} activeTab="verification" liveStatus={liveStatus} onTabChange={() => undefined} onSignOut={onSignOut}>
         <AppHeader eyebrow="ARTISAN ACCOUNT" title="Set up your artisan profile" detail="Every artisan profile is reviewed by a FixMate administrator before verified-provider access is enabled." action={<Button variant="quiet" onClick={onSignOut}>Sign out</Button>} />
         {error && <Alert>{error}</Alert>}
         {needsMore && <div className="status-banner"><div><strong>More information requested</strong><p>Update your profile or add evidence, then resubmit for administrator review.</p></div><StatusPill status={status} /></div>}
         <Card className="card-pad onboarding-card">
-          <div className="card-heading"><div><p className="eyebrow">ARTISAN PROFILE & EVIDENCE</p><h2>Your work, your campus zones</h2><p>FixMate may contact you via WhatsApp, request missing information, arrange a physical meeting, or check trade experience.</p></div><span className="onboarding-shield"><BriefcaseBusiness size={21} /></span></div>
+          <div className="card-heading"><div><p className="eyebrow">ARTISAN PROFILE & EVIDENCE</p><h2>Your work, your service zones</h2><p>FixMate may contact you via WhatsApp, request missing information, arrange a physical meeting, or check trade experience.</p></div><span className="onboarding-shield"><BriefcaseBusiness size={21} /></span></div>
           <form className="form-stack" onSubmit={handleSubmit}>
             <div className="form-grid">
               <Field label="Full name"><input required autoComplete="name" maxLength={120} value={name} onChange={(event) => setName(event.target.value)} /></Field>
               <Field label="WhatsApp contact" hint="Private account contact; not used to log in."><input required type="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="0812 345 6789" /></Field>
             </div>
-            <Field label="FixMate pilot services" hint="Only services currently active in the ABU Main Campus pilot are available.">
+            <Field label="Service categories" hint="Choose the service categories you can currently offer.">
               <div className="checkbox-list">{SERVICE_CATEGORIES.map((item) => <label key={item.value} className="checkbox-option"><input type="checkbox" checked={categories.includes(item.value)} onChange={() => toggleCategory(item.value)} /><span>{item.label}</span></label>)}</div>
             </Field>
-            <Field label="Service zones" hint="Choose every ABU Main Campus area where you can provide service.">
+            <Field label="Service zones" hint="Choose every active service zone where you can provide service.">
               {groupedZones.map(([group, items]) => <div className="zone-checkbox-group" key={group}><h4>{group}</h4><div className="zone-grid">{items.map((zone) => <label key={zone.id} className="zone-option"><input type="checkbox" checked={selectedZones.includes(zone.id)} onChange={() => toggleZone(zone.id)} /><span>{zone.name}</span></label>)}</div></div>)}
             </Field>
             <div className="form-grid">
@@ -238,12 +266,13 @@ export function ArtisanOnboarding({ supabase, profile, onRefresh, onSignOut }: P
 
   const statusLabel = status ? ARTISAN_APPLICATION_STATUSES[status] : 'Not submitted';
   return (
-    <WorkspaceShell profile={profile} roleLabel="Artisan · under review" navItems={navItems} activeTab="verification" onTabChange={() => undefined} onSignOut={onSignOut}>
+    <WorkspaceShell profile={profile} roleLabel="Artisan · under review" navItems={navItems} activeTab="verification" liveStatus={liveStatus} onTabChange={() => undefined} onSignOut={onSignOut}>
       <AppHeader eyebrow="ARTISAN VERIFICATION" title={profileChangedAfterApproval ? 'Profile update under review' : submitted ? 'Your application is under review' : 'Verification status'} detail="A FixMate administrator reviews artisan profiles and evidence privately." action={<Button variant="quiet" onClick={onSignOut}>Sign out</Button>} />
       {error && <Alert>{error}</Alert>}
       <Card className="card-pad">
         <div className="card-heading"><div><p className="eyebrow">CURRENT STATUS</p><h2>{profileChangedAfterApproval ? 'The marketplace is paused while the profile change is checked.' : submitted ? 'Thanks for submitting your profile.' : `Application: ${statusLabel}`}</h2><p>{profileChangedAfterApproval ? 'An artisan profile change requires another administrator review before the profile can use verified-provider features.' : 'FixMate may contact you via WhatsApp for missing information or to arrange a physical meeting and check trade experience.'}</p></div><span className="onboarding-shield"><ShieldCheck size={22} /></span></div>
         {status && <StatusPill status={status} />}
+        {status && ['submitted', 'in_review'].includes(status) && <p className="review-sla">Review is expected within 12 hours. If there is no update after 12 hours, contact FixMate support/admin.</p>}
         {documents.length > 0 && <div className="file-selection">{documents.map((doc) => <span key={doc.id}><FileCheck2 size={15} /> {doc.document_type.replaceAll('_', ' ')}</span>)}</div>}
         <div className="button-row"><WhatsAppSupport supabase={supabase} /><Button variant="quiet" onClick={() => void loadOnboarding()}>Refresh status</Button></div>
       </Card>

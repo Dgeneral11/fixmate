@@ -8,6 +8,7 @@ export type CustomerReviewStatus =
   | 'needs_more_info'
   | 'approved'
   | 'rejected';
+export type CustomerAlternativeIdType = 'nin' | 'passport' | 'drivers_license' | 'voters_card' | 'other_government_id';
 export type ArtisanApplicationStatus =
   | 'draft'
   | 'submitted'
@@ -44,6 +45,9 @@ export interface CustomerVerificationSubmission {
   customer_id: string;
   profile_photo_path: string | null;
   student_id_path: string | null;
+  is_student: boolean;
+  alternative_id_type: CustomerAlternativeIdType | null;
+  alternative_id_path: string | null;
   status: CustomerReviewStatus;
   submitted_at: string | null;
   created_at: string;
@@ -94,6 +98,7 @@ export interface VerificationCheck {
 export interface CustomerRequest {
   id: string;
   customer_id: string;
+  target_artisan_id: string | null;
   service_category: ServiceCategory;
   zone_id: string;
   title: string;
@@ -127,6 +132,31 @@ export interface JobReview {
   artisan_id: string;
   rating: number;
   review: string;
+  created_at: string;
+}
+
+export interface FixmateRequestEvent {
+  id: string;
+  request_id: string;
+  actor_id: string | null;
+  event_type: 'request_posted' | 'request_status_changed' | 'offer_sent' | 'offer_status_changed' | 'review_submitted';
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface CustomerRequestAttachment {
+  id: string;
+  request_id: string;
+  uploaded_by: string;
+  storage_path: string;
+  created_at: string;
+}
+
+export interface ArtisanPortfolioItem {
+  id: string;
+  artisan_id: string;
+  storage_path: string;
+  caption: string;
   created_at: string;
 }
 

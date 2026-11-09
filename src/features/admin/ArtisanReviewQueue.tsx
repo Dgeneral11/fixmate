@@ -14,7 +14,7 @@ interface CheckDraft { status: VerificationCheck['status']; note: string }
 
 type QueueView = 'action' | 'verified' | 'all';
 
-export function ArtisanReviewQueue({ supabase, administratorId }: { supabase: SupabaseClient; administratorId: string }) {
+export function ArtisanReviewQueue({ supabase, administratorId, refreshRevision = 0 }: { supabase: SupabaseClient; administratorId: string; refreshRevision?: number }) {
   const [items, setItems] = useState<ArtisanReviewItem[]>([]);
   const [checks, setChecks] = useState<VerificationCheck[]>([]);
   const [documents, setDocuments] = useState<ArtisanDocument[]>([]);
@@ -33,8 +33,8 @@ export function ArtisanReviewQueue({ supabase, administratorId }: { supabase: Su
   const selectedChecks = checks.filter((check) => check.application_id === selected?.application.id);
   const selectedDocs = documents.filter((doc) => doc.application_id === selected?.application.id);
 
-  async function load() {
-    setLoading(true);
+  async function load(background = false) {
+    if (!background) setLoading(true);
     setError('');
     const [appResult, zoneResult] = await Promise.all([
       supabase.from('artisan_verification_applications').select('id, artisan_id, route, status, applicant_notes, submitted_at, created_at').order('created_at', { ascending: true }).limit(250),
@@ -68,13 +68,12 @@ export function ArtisanReviewQueue({ supabase, administratorId }: { supabase: Su
     setChecks(nextChecks);
     setDocuments((docResult.data ?? []) as ArtisanDocument[]);
     setZoneLinks((zoneLinkResult.data ?? []) as Array<{ artisan_id: string; zone_id: string }>);
-    const drafts: Record<string, CheckDraft> = {};
-    for (const check of nextChecks) drafts[check.id] = { status: check.status, note: check.private_notes ?? '' };
-    setCheckDrafts(drafts);
-    setLoading(false);
+    setCheckDrafts((current) => { const next = { ...current }; for (const check of nextChecks) if (!next[check.id]) next[check.id] = { status: check.status, note: check.private_notes ?? '' }; return next; });
+    if (!background) setLoading(false);
   }
 
   useEffect(() => { void load(); }, [supabase]);
+  useEffect(() => { if (refreshRevision > 0) void load(true); }, [refreshRevision]);
 
   useEffect(() => {
     if (!selectedDocs.length) { setSignedLinks({}); return; }

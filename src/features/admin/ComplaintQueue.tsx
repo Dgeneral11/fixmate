@@ -7,7 +7,7 @@ import type { ComplaintStatus, CustomerRequest, UserComplaint } from '../../lib/
 
 interface Person { id: string; display_name: string; email: string | null; phone: string | null }
 
-export function ComplaintQueue({ supabase }: { supabase: SupabaseClient }) {
+export function ComplaintQueue({ supabase, refreshRevision = 0 }: { supabase: SupabaseClient; refreshRevision?: number }) {
   const [complaints, setComplaints] = useState<UserComplaint[]>([]);
   const [people, setPeople] = useState<Record<string, Person>>({});
   const [requests, setRequests] = useState<Record<string, CustomerRequest>>({});
@@ -17,13 +17,13 @@ export function ComplaintQueue({ supabase }: { supabase: SupabaseClient }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  async function load() {
-    setLoading(true);
+  async function load(background = false) {
+    if (!background) setLoading(true);
     setError('');
     const { data, error: queryError } = await supabase.from('user_complaints')
       .select('id, request_id, reporter_id, subject_user_id, reason, details, status, created_at')
       .order('created_at', { ascending: false }).limit(200);
-    if (queryError) { setError(queryError.message); setComplaints([]); setLoading(false); return; }
+    if (queryError) { setError(queryError.message); if (!background) setLoading(false); return; }
     const next = (data ?? []) as UserComplaint[];
     setComplaints(next);
     const personIds = [...new Set(next.flatMap((item) => [item.reporter_id, item.subject_user_id]))];
@@ -39,10 +39,11 @@ export function ComplaintQueue({ supabase }: { supabase: SupabaseClient }) {
     for (const item of (requestResult.data ?? []) as CustomerRequest[]) requestMap[item.id] = item;
     setPeople(profileMap);
     setRequests(requestMap);
-    setLoading(false);
+    if (!background) setLoading(false);
   }
 
   useEffect(() => { void load(); }, [supabase]);
+  useEffect(() => { if (refreshRevision > 0) void load(true); }, [refreshRevision]);
 
   async function review(complaintId: string, status: ComplaintStatus) {
     setBusyId(complaintId);

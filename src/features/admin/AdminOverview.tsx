@@ -6,7 +6,7 @@ import { Alert, AppHeader, Card, LoadingState } from '../../components/ui';
 type QueueTab = 'customers' | 'artisans' | 'people' | 'complaints';
 interface Counts { customers: number; artisans: number; people: number; complaints: number }
 
-export function AdminOverview({ supabase, onOpen }: { supabase: SupabaseClient; onOpen: (tab: QueueTab) => void }) {
+export function AdminOverview({ supabase, onOpen, refreshRevision = 0 }: { supabase: SupabaseClient; onOpen: (tab: QueueTab) => void; refreshRevision?: number }) {
   const [counts, setCounts] = useState<Counts | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -25,7 +25,7 @@ export function AdminOverview({ supabase, onOpen }: { supabase: SupabaseClient; 
     }
     void load();
     return () => { alive = false; };
-  }, [supabase]);
+  }, [supabase, refreshRevision]);
   if (error) return <Alert>{error}</Alert>;
   if (!counts) return <LoadingState label="Loading live administrator queues…" />;
   const metrics = [

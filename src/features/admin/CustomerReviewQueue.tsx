@@ -7,7 +7,15 @@ import type { CustomerReviewStatus, CustomerVerificationSubmission, Profile } fr
 
 interface DirectoryProfile extends Pick<Profile, 'id' | 'display_name' | 'email' | 'phone' | 'account_status'> {}
 
-export function CustomerReviewQueue({ supabase }: { supabase: SupabaseClient }) {
+const idLabel: Record<string, string> = {
+  nin: 'NIN document',
+  passport: 'International passport',
+  drivers_license: "Driver's licence",
+  voters_card: "Voter's card",
+  other_government_id: 'Other government ID',
+};
+
+export function CustomerReviewQueue({ supabase, refreshRevision = 0 }: { supabase: SupabaseClient; refreshRevision?: number }) {
   const [submissions, setSubmissions] = useState<CustomerVerificationSubmission[]>([]);
   const [people, setPeople] = useState<Record<string, DirectoryProfile>>({});
   const [selectedId, setSelectedId] = useState('');
@@ -20,17 +28,17 @@ export function CustomerReviewQueue({ supabase }: { supabase: SupabaseClient }) 
   const selected = useMemo(() => submissions.find((item) => item.id === selectedId) ?? submissions[0], [submissions, selectedId]);
   const person = selected ? people[selected.customer_id] : undefined;
 
-  async function load() {
-    setLoading(true);
+  async function load(background = false) {
+    if (!background) setLoading(true);
     setError('');
     const { data, error: queryError } = await supabase.from('customer_verification_submissions')
-      .select('id, customer_id, profile_photo_path, student_id_path, status, submitted_at, created_at')
+      .select('id, customer_id, profile_photo_path, student_id_path, is_student, alternative_id_type, alternative_id_path, status, submitted_at, created_at')
       .in('status', ['submitted', 'in_review', 'needs_more_info']).order('created_at', { ascending: true }).limit(200);
-    if (queryError) { setError(queryError.message); setSubmissions([]); setLoading(false); return; }
+    if (queryError) { setError(queryError.message); if (!background) setLoading(false); return; }
     const next = (data ?? []) as CustomerVerificationSubmission[];
     setSubmissions(next);
     if (next.length && !next.some((item) => item.id === selectedId)) setSelectedId(next[0].id);
-    if (!next.length) { setSelectedId(''); setPeople({}); setSignedLinks({}); setLoading(false); return; }
+    if (!next.length) { setSelectedId(''); setPeople({}); setSignedLinks({}); if (!background) setLoading(false); return; }
     const customerIds = [...new Set(next.map((item) => item.customer_id))];
     const { data: profileData, error: profileError } = await supabase.from('profiles')
       .select('id, display_name, email, phone, account_status').in('id', customerIds);
@@ -38,16 +46,17 @@ export function CustomerReviewQueue({ supabase }: { supabase: SupabaseClient }) 
     const profileMap: Record<string, DirectoryProfile> = {};
     for (const item of (profileData ?? []) as DirectoryProfile[]) profileMap[item.id] = item;
     setPeople(profileMap);
-    setLoading(false);
+    if (!background) setLoading(false);
   }
 
   useEffect(() => { void load(); }, [supabase]);
+  useEffect(() => { if (refreshRevision > 0) void load(true); }, [refreshRevision]);
 
   useEffect(() => {
     if (!selected) { setSignedLinks({}); return; }
     let alive = true;
     async function signEvidence() {
-      const paths = [selected.profile_photo_path, selected.student_id_path].filter((path): path is string => Boolean(path));
+      const paths = [selected.profile_photo_path, selected.student_id_path, selected.alternative_id_path].filter((path): path is string => Boolean(path));
       const pairs = await Promise.all(paths.map(async (path) => {
         const { data, error: signError } = await supabase.storage.from('fixmate-verification').createSignedUrl(path, 300);
         if (signError) return [path, ''] as const;
@@ -80,17 +89,20 @@ export function CustomerReviewQueue({ supabase }: { supabase: SupabaseClient }) 
   }
 
   if (loading) return <LoadingState label="Loading customer submissions…" />;
+  const selectedIdPath = selected?.is_student ? selected.student_id_path : selected?.alternative_id_path;
+  const selectedIdLabel = selected?.is_student ? 'Student ID' : idLabel[selected?.alternative_id_type ?? ''] ?? 'Alternative ID';
+
   return <section className="admin-section">
-    <div className="admin-toolbar"><div><p className="eyebrow">PRIVATE CUSTOMER EVIDENCE</p><h2>Customer approval queue</h2><p className="muted">Review profile photos and ABU student IDs privately. Customer marketplace access remains blocked until approval.</p></div><Button variant="secondary" onClick={() => void load()}><RefreshCw size={15} /> Refresh</Button></div>
+    <div className="admin-toolbar"><div><p className="eyebrow">PRIVATE CUSTOMER EVIDENCE</p><h2>Customer approval queue</h2><p className="muted">Review a profile photo and the ID that applies to the applicant. Student status is not required; all customer accounts still need administrator approval.</p></div><Button variant="secondary" onClick={() => void load()}><RefreshCw size={15} /> Refresh</Button></div>
     {error && <Alert>{error}</Alert>}{notice && <Alert tone="success">{notice}</Alert>}
     {!submissions.length ? error ? <EmptyState title="Customer review queue could not load" detail="A live FixMate query failed. Retry before assuming there are no customer submissions." action={<Button variant="secondary" onClick={() => void load()}>Retry</Button>} /> : <EmptyState title="No customer submissions need review" detail="No customer has submitted a verification package in this FixMate project yet." /> : <div className="admin-queue-grid">
-      <Card className="admin-queue-list">{submissions.map((item) => { const contact = people[item.customer_id]; return <button type="button" key={item.id} className={`admin-queue-item${(selected?.id ?? '') === item.id ? ' is-active' : ''}`} onClick={() => { setSelectedId(item.id); setNote(''); }}><strong>{contact?.display_name || 'Customer account'}</strong><small>{item.status.replaceAll('_', ' ')} · {item.submitted_at ? formatDate(item.submitted_at) : 'Not submitted'}</small></button>; })}</Card>
+      <Card className="admin-queue-list">{submissions.map((item) => { const contact = people[item.customer_id]; return <button type="button" key={item.id} className={`admin-queue-item${(selected?.id ?? '') === item.id ? ' is-active' : ''}`} onClick={() => { setSelectedId(item.id); setNote(''); }}><strong>{contact?.display_name || 'Customer account'}</strong><small>{item.status.replaceAll('_', ' ')} · {item.is_student ? 'Student' : 'Non-student'} · {item.submitted_at ? formatDate(item.submitted_at) : 'Not submitted'}</small></button>; })}</Card>
       {selected ? <Card className="admin-detail">
         <div className="list-card__top"><div><p className="eyebrow">CUSTOMER SUBMISSION</p><h2>{person?.display_name || 'Customer account'}</h2><div className="list-card__meta"><span>{person?.email || 'No email on profile'}</span><span>{person?.phone || 'No WhatsApp contact saved'}</span></div></div><StatusPill status={selected.status} /></div>
-        <p className="field__hint">Submitted {selected.submitted_at ? formatDate(selected.submitted_at) : 'date not recorded'} · account state: {person?.account_status?.replaceAll('_', ' ') ?? 'unknown'}</p>
+        <p className="field__hint">Submitted {selected.submitted_at ? formatDate(selected.submitted_at) : 'date not recorded'} · account state: {person?.account_status?.replaceAll('_', ' ') ?? 'unknown'} · {selected.is_student ? 'Student applicant' : 'Non-student applicant'}</p>
         <div className="evidence-row"><p className="section-kicker">PRIVATE EVIDENCE</p><div className="button-row">
           {selected.profile_photo_path && signedLinks[selected.profile_photo_path] ? <a className="admin-evidence-link" href={signedLinks[selected.profile_photo_path]} target="_blank" rel="noreferrer"><FileCheck2 size={15} /> Profile photo <ExternalLink size={13} /></a> : <span className="field__hint">Profile photo unavailable</span>}
-          {selected.student_id_path && signedLinks[selected.student_id_path] ? <a className="admin-evidence-link" href={signedLinks[selected.student_id_path]} target="_blank" rel="noreferrer"><FileCheck2 size={15} /> ABU student ID <ExternalLink size={13} /></a> : <span className="field__hint">Student ID unavailable</span>}
+          {selectedIdPath && signedLinks[selectedIdPath] ? <a className="admin-evidence-link" href={signedLinks[selectedIdPath]} target="_blank" rel="noreferrer"><FileCheck2 size={15} /> {selectedIdLabel} <ExternalLink size={13} /></a> : <span className="field__hint">{selectedIdLabel} unavailable</span>}
         </div><p className="field__hint">Signed links expire after five minutes. Keep evidence private; never forward it over WhatsApp.</p></div>
         {person?.phone && <a className="inline-link" href={whatsAppLink(person.phone, `Hello ${person.display_name || 'there'}, FixMate is following up on your customer account review. Please reply here so we can help.`)} target="_blank" rel="noreferrer"><MessageCircle size={15} /> Open WhatsApp draft to customer</a>}
         <div className="admin-review-controls"><Field label="Private administrator note" hint="Required when requesting more information; stored in the administrator-only review record."><textarea maxLength={2000} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Record a concise review note. Do not share ID numbers in the note." /></Field>

@@ -3,6 +3,7 @@ import { LogOut, ShieldCheck } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { BrandMark } from './ui';
 import type { Profile } from '../lib/types';
+import type { RealtimeConnectionStatus } from '../lib/useRealtimeRefresh';
 
 export interface WorkspaceNavItem<T extends string = string> {
   id: T;
@@ -17,6 +18,7 @@ export function WorkspaceShell<T extends string>({
   activeTab,
   onTabChange,
   onSignOut,
+  liveStatus,
   children,
 }: {
   profile: Profile;
@@ -25,6 +27,7 @@ export function WorkspaceShell<T extends string>({
   activeTab: T;
   onTabChange: (tab: T) => void;
   onSignOut: () => void;
+  liveStatus?: RealtimeConnectionStatus;
   children: ReactNode;
 }) {
   const displayName = profile.display_name || profile.email || 'FixMate member';
@@ -45,7 +48,7 @@ export function WorkspaceShell<T extends string>({
         <BrandMark compact />
         <div className="mobile-topbar__right"><span className="avatar" title={displayName}>{initial}</span><button className="icon-button" type="button" onClick={onSignOut} aria-label="Sign out"><LogOut size={18} /></button></div>
       </div>
-      <main className="workspace"><div className="workspace__content">{children}</div></main>
+      <main className="workspace"><div className="workspace__content">{liveStatus && <LiveUpdatesStatus status={liveStatus} />}{children}</div></main>
       <nav className="mobile-nav" aria-label="Workspace tabs">
         {navItems.map((item) => <NavButton key={item.id} item={item} active={activeTab === item.id} onSelect={() => onTabChange(item.id)} />)}
       </nav>
@@ -58,10 +61,19 @@ function NavButton<T extends string>({ item, active, onSelect }: { item: Workspa
   return <button type="button" className={`nav-link${active ? ' is-active' : ''}`} onClick={onSelect} aria-current={active ? 'page' : undefined}><Icon size={18} /><span>{item.label}</span></button>;
 }
 
+export function LiveUpdatesStatus({ status }: { status: RealtimeConnectionStatus }) {
+  const label = status === 'live'
+    ? 'Live updates on'
+    : status === 'connecting'
+      ? 'Connecting to live updates…'
+      : 'Reconnecting · checking periodically';
+  return <div className={`live-updates-status live-updates-status--${status}`} role="status" aria-live="polite"><span aria-hidden="true" />{label}</div>;
+}
+
 export function AdminHeader({ onSignOut }: { onSignOut: () => void }) {
   return (
     <header className="admin-header">
-      <div className="admin-header__title"><BrandMark compact /><span className="admin-lock"><ShieldCheck size={16} /></span><div><h1>Administrator</h1><p>Private review workspace · ABU Main Campus pilot</p></div></div>
+      <div className="admin-header__title"><BrandMark compact /><span className="admin-lock"><ShieldCheck size={16} /></span><div><h1>Administrator</h1><p>Private review workspace</p></div></div>
       <button className="nav-link" type="button" onClick={onSignOut}><LogOut size={18} /><span>Sign out</span></button>
     </header>
   );

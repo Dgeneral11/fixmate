@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import { Check, CircleAlert, LoaderCircle, Wrench } from 'lucide-react';
+import { Check, CircleAlert, Footprints, LoaderCircle, Smartphone, Wrench, Zap } from 'lucide-react';
 import type { AccountStatus, ComplaintStatus, CustomerReviewStatus, ArtisanApplicationStatus } from '../lib/types';
+import type { ServiceCategory } from '../lib/types';
 
 export function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
@@ -9,6 +10,11 @@ export function BrandMark({ compact = false }: { compact?: boolean }) {
       <span className="brand-word">Fix<span>Mate</span></span>
     </div>
   );
+}
+
+export function ServiceIcon({ category, size = 19 }: { category: ServiceCategory; size?: number }) {
+  const Icon = category === 'electrical_repairs' ? Zap : category === 'phone_computer_repair' ? Smartphone : Footprints;
+  return <Icon size={size} aria-hidden="true" />;
 }
 
 export function AppHeader({ eyebrow, title, detail, action }: {
